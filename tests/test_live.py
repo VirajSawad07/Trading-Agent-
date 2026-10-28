@@ -181,3 +181,26 @@ def test_explain_last_matches_signals():
         assert info["breakout"] != 0
         checked += 1
     assert checked > 0
+
+
+# ---------------------------------------------------------------- dashboard
+
+def test_dashboard_view_reads_ledger_and_heartbeat(tmp_path):
+    import os
+    from src.live.dashboard import ledger_view
+    led_path, state_path = tmp_path / "l.jsonl", tmp_path / "s.json"
+    led = Ledger(led_path)
+    led.append("session_start", "started")
+    led.append("decision", "No breakout.", bar_time="2026-10-28 18:00:00", params={"lookback": 100, "threshold": 0.5})
+    led.append("trade_closed", "Trade closed by take profit.", r_net=1.4, pnl_usd=42.0)
+    led.append("trade_closed", "Trade closed by stop loss.", r_net=-1.05, pnl_usd=-31.5)
+    state_path.write_text(json.dumps({"sizing_equity": 3000.0, "closed_pnl": 10.5}))
+
+    v = ledger_view(led_path, state_path)
+    assert v["running"] and v["ledger_ok"] and v["params"]["lookback"] == 100
+    assert [p["cum_r"] for p in v["curve"]] == [1.4, pytest.approx(0.35)]
+    assert v["summary"]["trades_closed"] == 2 and v["recent"][0]["event"] == "trade_closed"
+
+    old = os.path.getmtime(state_path) - 600
+    os.utime(state_path, (old, old))
+    assert not ledger_view(led_path, state_path)["running"]  # no heartbeat for 10 min

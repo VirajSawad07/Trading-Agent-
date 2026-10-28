@@ -207,6 +207,8 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 - 55 tests pass, including the new `tests/test_live.py` (13 tests).
 - **To start paper trading:** `python -m src.live.paper_trader` with MT5 open on demo; leave it running for 4 to 8 weeks (step 7). Check progress with `python -m src.live.ledger summary reports/live/ledger_XAUUSD_H1.jsonl`. Expect only a few trades per month.
 
+- **Dashboard** (`src/live/dashboard.py` + `dashboard.html`, read-only): `python -m src.live.dashboard`, then open http://127.0.0.1:8050. It shows running status (from the state-file heartbeat), ledger integrity, the demo check, bot equity, the open position, hourly candles with the breakout channel, cumulative R vs the backtest pace, and the activity feed. It cannot trade. The old `src/web/` dashboard belongs to the old multi-agent bot.
+
 ### Not yet done
 - Run step 7: 4 to 8 weeks of demo paper trading, then compare forward R with the backtest (+0.105 R per trade, about 17 trades a year).
 - Not yet tested on demo: a real order fill, the SL/TP re-anchor, and closed-trade reconciliation. The first real signal will exercise them, so check the ledger after it.
