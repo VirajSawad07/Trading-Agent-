@@ -1,0 +1,17 @@
+# Secrets: never commit (holds the OpenAI key / MT5 login). Use .env.example as the template.
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Broker price data: regenerate with `python -m src.data.fetch_history`
+data/raw/
+
+# Old models trained with the leaky (unpurged) pipeline
+models/ml/*.pkl
+
+# Harness run logs (the JSON/CSV reports themselves are tracked)
+reports/harness/logs/

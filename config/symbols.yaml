@@ -1,0 +1,29 @@
+# Per-symbol contract specs and cost assumptions for the honest test harness.
+# Specs read from MT5 (MetaQuotes-Demo) on 2026-10-28. Re-check against the real broker before going live.
+# Prices are bid-based (MT5 bars are bid). Buys fill at ask = bid + spread.
+
+XAUUSD:
+  contract_size: 100.0        # 1.0 lot = 100 oz
+  point: 0.01
+  min_lot: 0.01
+  lot_step: 0.01
+  max_lot: 100.0
+  spread_points: 35           # live spread was 39 pts; file history says 5 pts (not trusted)
+  slippage_points: 5          # applied on entry and on stop exits
+  commission_per_lot: 7.0     # USD round trip per 1.0 lot (assumption, ECN-style)
+  swap_long_points: -12.6     # per lot per night, in points
+  swap_short_points: -4.6
+  triple_swap_weekday: 2      # Wednesday (Monday=0)
+
+EURUSD:
+  contract_size: 100000.0
+  point: 0.00001
+  min_lot: 0.01
+  lot_step: 0.01
+  max_lot: 500.0
+  spread_points: 8            # 0.8 pip
+  slippage_points: 2
+  commission_per_lot: 7.0
+  swap_long_points: -0.7
+  swap_short_points: -1.0
+  triple_swap_weekday: 2

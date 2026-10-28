@@ -1,0 +1,140 @@
+{
+  "strategy": "donchian_breakout",
+  "configs_tried": 27,
+  "folds": 16,
+  "oos_start": "2023-01-04 00:00:00",
+  "oos_end": "2026-10-28 08:00:00",
+  "chosen_params": [
+    "{'lookback': 20, 'sl_mult': 1.5, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 3.0}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 3.0}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 1.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 1.5}",
+    "{'lookback': 20, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 20, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 1.5}"
+  ],
+  "oos": {
+    "trades": 136,
+    "trades_per_year": 35.6597272074659,
+    "win_rate_pct": 33.82352941176471,
+    "avg_r": -0.16609046388940588,
+    "total_r": -22.5883030889592,
+    "profit_factor": 0.7416218200197919,
+    "t_stat": -1.6367956018163832,
+    "avg_cost_r": 0.03352029468671445,
+    "avg_bars_held": 20.5
+  },
+  "oos_sharpe_annual": -0.8359186158541156,
+  "deflated_sharpe": {
+    "sharpe_per_period": -0.051830882911853005,
+    "sharpe_threshold": 0.048434278989787555,
+    "dsr": 0.001117649598750241,
+    "n_trials": 27
+  },
+  "pbo": {
+    "pbo": 0.2954156954156954,
+    "combinations": 12870,
+    "prob_oos_loss": 0.5790986790986791
+  },
+  "oos_2x_costs": {
+    "trades": 137,
+    "trades_per_year": 35.92193108399138,
+    "win_rate_pct": 32.11678832116788,
+    "avg_r": -0.12578936411903935,
+    "total_r": -17.23314288430839,
+    "profit_factor": 0.8085222370497461,
+    "t_stat": -1.1563754072206534,
+    "avg_cost_r": 0.06755679954883645,
+    "avg_bars_held": 21.875912408759124
+  },
+  "random_walk": {
+    "runs": 10,
+    "mean_trades": 176.0,
+    "mean_total_r": -6.413288943029339,
+    "mean_avg_r": -0.03487039948584107,
+    "profitable_runs": 5,
+    "total_r_p95": 9.979682613878845,
+    "total_r_all": [
+      7.74,
+      -18.8,
+      -2.79,
+      -19.81,
+      1.54,
+      7.81,
+      1.14,
+      -10.66,
+      -42.04,
+      11.76
+    ]
+  },
+  "accounts": {
+    "600": {
+      "capped_risk": {
+        "start_equity": 600,
+        "final_equity": 542.868909310056,
+        "return_pct": -9.521848448324,
+        "trades_taken": 20,
+        "trades_skipped_min_lot": 1,
+        "median_risk_pct": 0.9350420940864902,
+        "max_risk_pct": 1.5515377484879376,
+        "max_drawdown_pct": 10.621456269030894,
+        "halted_at": "2023-04-12 08:00:00"
+      },
+      "forced_min_lot": {
+        "start_equity": 600,
+        "final_equity": 541.5742016756299,
+        "return_pct": -9.737633054061689,
+        "trades_taken": 20,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.9350420940864902,
+        "max_risk_pct": 2.0483092729740835,
+        "max_drawdown_pct": 10.834618380431682,
+        "halted_at": "2023-04-10 16:00:00"
+      }
+    },
+    "3000": {
+      "capped_risk": {
+        "start_equity": 3000,
+        "final_equity": 2714.382516149172,
+        "return_pct": -9.520582795027611,
+        "trades_taken": 20,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.8976443035748445,
+        "max_risk_pct": 0.9970036177650301,
+        "max_drawdown_pct": 10.235433427573016,
+        "halted_at": "2023-04-10 16:00:00"
+      },
+      "forced_min_lot": {
+        "start_equity": 3000,
+        "final_equity": 2714.382516149172,
+        "return_pct": -9.520582795027611,
+        "trades_taken": 20,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.8976443035748445,
+        "max_risk_pct": 0.9970036177650301,
+        "max_drawdown_pct": 10.235433427573016,
+        "halted_at": "2023-04-10 16:00:00"
+      }
+    }
+  },
+  "checks": {
+    "no_lookahead": true,
+    "enough_oos_trades (>=100)": true,
+    "profitable_after_costs (avg R > 0, t > 2)": false,
+    "survives_2x_costs": false,
+    "deflated_sharpe >= 0.95": false,
+    "pbo < 0.5": true,
+    "harness_sane (shuffled data loses)": true,
+    "beats 95% of shuffled runs": false
+  },
+  "verdict": "FAIL"
+}

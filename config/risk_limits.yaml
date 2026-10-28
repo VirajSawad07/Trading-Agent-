@@ -1,0 +1,18 @@
+# Hard Risk Controls & Governance
+# These rules are enforced deterministically and cannot be overridden by any AI agent.
+
+risk_limits:
+  max_risk_per_trade_pct: 0.01   # Max 1.0% equity risk per single trade
+  max_daily_loss_pct: 0.03       # 3.0% daily drawdown triggers circuit breaker / kill-switch
+  max_total_drawdown_pct: 0.10   # 10.0% max account drawdown trigger
+  max_open_positions: 2          # Up to 2 concurrent positions
+  max_spread_points: 50          # Max allowed spread = $0.50 (rejects orders during news spikes)
+  
+  # Lot Size Constraints
+  min_lot_size: 0.01
+  max_lot_size: 2.0
+  lot_step: 0.01
+
+  # Safety Verification
+  demo_account_only: true        # Live trading execution strictly blocked
+  enforce_stop_loss: true        # Every trade MUST have an explicit Stop Loss attached

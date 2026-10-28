@@ -1,0 +1,136 @@
+{
+  "strategy": "meta_breakout_long",
+  "configs_tried": 9,
+  "folds": 16,
+  "oos_start": "2023-01-04 01:00:00",
+  "oos_end": "2026-10-28 10:00:00",
+  "chosen_params": [
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "None",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.6}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 100, 'threshold': 0.55}",
+    "{'lookback': 100, 'threshold': 0.5}",
+    "{'lookback': 100, 'threshold': 0.6}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 100, 'threshold': 0.5}"
+  ],
+  "oos": {
+    "trades": 129,
+    "trades_per_year": 33.82430007178751,
+    "win_rate_pct": 51.162790697674424,
+    "avg_r": 0.27559674328831263,
+    "total_r": 35.55197988419233,
+    "profit_factor": 1.5562318446513628,
+    "t_stat": 2.4687203466369185,
+    "avg_cost_r": 0.036882777996814206,
+    "avg_bars_held": 11.945736434108527
+  },
+  "buy_and_hold_pct": 120.48722849317457,
+  "oos_sharpe_annual": 1.2134363211565093,
+  "deflated_sharpe": {
+    "sharpe_per_period": 0.07546732889310975,
+    "sharpe_threshold": 0.042846435951742014,
+    "dsr": 0.8644349156110623,
+    "n_trials": 9
+  },
+  "pbo": {
+    "pbo": 0.37715617715617716,
+    "combinations": 12870,
+    "prob_oos_loss": 0.05112665112665113
+  },
+  "oos_2x_costs": {
+    "trades": 128,
+    "trades_per_year": 33.56209619526202,
+    "win_rate_pct": 50.78125,
+    "avg_r": 0.25428207425462285,
+    "total_r": 32.548105504591724,
+    "profit_factor": 1.5022816263345173,
+    "t_stat": 2.2642683685349914,
+    "avg_cost_r": 0.07344726504568279,
+    "avg_bars_held": 11.8359375
+  },
+  "random_walk": {
+    "runs": 5,
+    "mean_trades": 120.6,
+    "mean_total_r": -4.142321909131823,
+    "mean_avg_r": -0.03687545126703382,
+    "profitable_runs": 2,
+    "total_r_p95": 8.495592411680256,
+    "total_r_all": [
+      9.94,
+      -5.59,
+      -18.17,
+      2.72,
+      -9.61
+    ]
+  },
+  "accounts": {
+    "600": {
+      "capped_risk": {
+        "start_equity": 600,
+        "final_equity": 578.2466743218531,
+        "return_pct": -3.6255542796911455,
+        "trades_taken": 34,
+        "trades_skipped_min_lot": 95,
+        "median_risk_pct": 1.6120236428451507,
+        "max_risk_pct": 1.975193014299636,
+        "max_drawdown_pct": 8.721777812775123,
+        "halted_at": null
+      },
+      "forced_min_lot": {
+        "start_equity": 600,
+        "final_equity": 531.6051293347425,
+        "return_pct": -11.399145110876251,
+        "trades_taken": 26,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 1.6093157139941254,
+        "max_risk_pct": 2.402566513144597,
+        "max_drawdown_pct": 11.399145110876251,
+        "halted_at": "2023-12-14 20:00:00"
+      }
+    },
+    "3000": {
+      "capped_risk": {
+        "start_equity": 3000,
+        "final_equity": 4189.9313365876,
+        "return_pct": 39.66437788625332,
+        "trades_taken": 129,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.8091080386502892,
+        "max_risk_pct": 1.8532514288155857,
+        "max_drawdown_pct": 5.7196370389793305,
+        "halted_at": null
+      },
+      "forced_min_lot": {
+        "start_equity": 3000,
+        "final_equity": 4189.9313365876,
+        "return_pct": 39.66437788625332,
+        "trades_taken": 129,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.8091080386502892,
+        "max_risk_pct": 1.8532514288155857,
+        "max_drawdown_pct": 5.7196370389793305,
+        "halted_at": null
+      }
+    }
+  },
+  "checks": {
+    "no_lookahead": true,
+    "enough_oos_trades (>=100)": true,
+    "profitable_after_costs (avg R > 0, t > 2)": true,
+    "survives_2x_costs": true,
+    "deflated_sharpe >= 0.95": false,
+    "pbo < 0.5": true,
+    "harness_sane (shuffled data loses)": true,
+    "beats 95% of shuffled runs": true
+  },
+  "verdict": "FAIL"
+}

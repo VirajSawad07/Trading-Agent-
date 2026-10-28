@@ -1,0 +1,141 @@
+{
+  "strategy": "donchian_long",
+  "configs_tried": 3,
+  "folds": 16,
+  "oos_start": "2023-01-04 00:00:00",
+  "oos_end": "2026-10-28 08:00:00",
+  "chosen_params": [
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 2.0, 'tp_mult': 3.0}"
+  ],
+  "oos": {
+    "trades": 131,
+    "trades_per_year": 34.34870782483848,
+    "win_rate_pct": 57.25190839694656,
+    "avg_r": 0.4201460909466143,
+    "total_r": 55.039137914006474,
+    "profit_factor": 1.9667390939867018,
+    "t_stat": 3.8549091742790877,
+    "avg_cost_r": 0.028977961351962355,
+    "avg_bars_held": 14.366412213740459
+  },
+  "buy_and_hold_pct": 119.85924809421049,
+  "oos_sharpe_annual": 1.9083440496611765,
+  "deflated_sharpe": {
+    "sharpe_per_period": 0.11868577322601304,
+    "sharpe_threshold": 0.0037837840201387423,
+    "dsr": 0.9999610922454175,
+    "n_trials": 3
+  },
+  "pbo": {
+    "pbo": 0.9064491064491065,
+    "combinations": 12870,
+    "prob_oos_loss": 0.0
+  },
+  "oos_2x_costs": {
+    "trades": 131,
+    "trades_per_year": 34.34870782483848,
+    "win_rate_pct": 54.19847328244275,
+    "avg_r": 0.3291511906167915,
+    "total_r": 43.118805970799684,
+    "profit_factor": 1.696801521629366,
+    "t_stat": 2.997538488973708,
+    "avg_cost_r": 0.05647437760087291,
+    "avg_bars_held": 13.580152671755725
+  },
+  "random_walk": {
+    "runs": 10,
+    "mean_trades": 117.3,
+    "mean_total_r": 5.928346920220642,
+    "mean_avg_r": 0.053222629753200856,
+    "profitable_runs": 8,
+    "total_r_p95": 24.302509094126002,
+    "total_r_all": [
+      5.67,
+      -17.97,
+      3.95,
+      5.16,
+      4.45,
+      33.2,
+      13.43,
+      -0.14,
+      8.89,
+      2.64
+    ]
+  },
+  "accounts": {
+    "600": {
+      "capped_risk": {
+        "start_equity": 600,
+        "final_equity": 587.8142923804548,
+        "return_pct": -2.030951269924197,
+        "trades_taken": 1,
+        "trades_skipped_min_lot": 130,
+        "median_risk_pct": 1.9059512699241987,
+        "max_risk_pct": 1.9059512699241987,
+        "max_drawdown_pct": 2.030951269924197,
+        "halted_at": null
+      },
+      "forced_min_lot": {
+        "start_equity": 600,
+        "final_equity": 2913.554963034469,
+        "return_pct": 385.5924938390782,
+        "trades_taken": 120,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 2.440850745019215,
+        "max_risk_pct": 5.476979729218973,
+        "max_drawdown_pct": 11.76287021862371,
+        "halted_at": "2026-06-01 16:00:00"
+      }
+    },
+    "3000": {
+      "capped_risk": {
+        "start_equity": 3000,
+        "final_equity": 5254.78936279451,
+        "return_pct": 75.15964542648368,
+        "trades_taken": 126,
+        "trades_skipped_min_lot": 5,
+        "median_risk_pct": 0.8710668919478286,
+        "max_risk_pct": 1.980539709659714,
+        "max_drawdown_pct": 8.242510300163719,
+        "halted_at": null
+      },
+      "forced_min_lot": {
+        "start_equity": 3000,
+        "final_equity": 5097.985499961634,
+        "return_pct": 69.93284999872111,
+        "trades_taken": 122,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.8427597874263982,
+        "max_risk_pct": 2.6116475915069755,
+        "max_drawdown_pct": 10.37579262103141,
+        "halted_at": "2026-07-08 16:00:00"
+      }
+    }
+  },
+  "checks": {
+    "no_lookahead": true,
+    "enough_oos_trades (>=100)": true,
+    "profitable_after_costs (avg R > 0, t > 2)": true,
+    "survives_2x_costs": true,
+    "deflated_sharpe >= 0.95": true,
+    "pbo < 0.5": false,
+    "harness_sane (shuffled data loses)": false,
+    "beats 95% of shuffled runs": true
+  },
+  "verdict": "FAIL"
+}

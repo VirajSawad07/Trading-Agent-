@@ -1,0 +1,25 @@
+# Core Data & Numerical Processing
+numpy>=1.26.0
+pandas>=2.2.0
+
+# MT5 Terminal Integration
+MetaTrader5>=5.0.45
+
+# Configuration & Environment
+pyyaml>=6.0.1
+python-dotenv>=1.0.1
+
+# Machine Learning & Modeling
+lightgbm>=4.3.0
+scikit-learn>=1.4.0
+openai>=1.20.0
+
+# Evaluation, Testing & Reporting
+pytest>=8.0.0
+tabulate>=0.9.0
+rich>=13.7.0
+
+# Live Web Dashboard
+fastapi>=0.110.0
+uvicorn>=0.28.0
+

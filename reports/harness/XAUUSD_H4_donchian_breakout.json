@@ -1,0 +1,140 @@
+{
+  "strategy": "donchian_breakout",
+  "configs_tried": 27,
+  "folds": 16,
+  "oos_start": "2023-01-04 00:00:00",
+  "oos_end": "2026-10-28 08:00:00",
+  "chosen_params": [
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 50, 'sl_mult': 2.0, 'tp_mult': 3.0}",
+    "{'lookback': 100, 'sl_mult': 3.0, 'tp_mult': 4.5}",
+    "{'lookback': 20, 'sl_mult': 3.0, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 3.0, 'tp_mult': 3.0}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 1.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 1.5}",
+    "{'lookback': 100, 'sl_mult': 1.5, 'tp_mult': 1.5}",
+    "{'lookback': 100, 'sl_mult': 1.5, 'tp_mult': 1.5}",
+    "{'lookback': 100, 'sl_mult': 2.0, 'tp_mult': 1.5}",
+    "{'lookback': 100, 'sl_mult': 1.5, 'tp_mult': 1.5}",
+    "{'lookback': 20, 'sl_mult': 1.5, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 1.5, 'tp_mult': 3.0}",
+    "{'lookback': 20, 'sl_mult': 1.5, 'tp_mult': 3.0}"
+  ],
+  "oos": {
+    "trades": 191,
+    "trades_per_year": 50.080940416367554,
+    "win_rate_pct": 49.73821989528796,
+    "avg_r": 0.07983582831601169,
+    "total_r": 15.248643208358232,
+    "profit_factor": 1.16541810931703,
+    "t_stat": 1.0085766535798926,
+    "avg_cost_r": 0.02092404174801653,
+    "avg_bars_held": 12.455497382198953
+  },
+  "oos_sharpe_annual": 0.5154831421241522,
+  "deflated_sharpe": {
+    "sharpe_per_period": 0.03205947864529055,
+    "sharpe_threshold": 0.03210870691351822,
+    "dsr": 0.4993731282988732,
+    "n_trials": 27
+  },
+  "pbo": {
+    "pbo": 0.6805749805749806,
+    "combinations": 12870,
+    "prob_oos_loss": 0.06853146853146853
+  },
+  "oos_2x_costs": {
+    "trades": 171,
+    "trades_per_year": 44.83686288585786,
+    "win_rate_pct": 47.953216374269005,
+    "avg_r": 0.04723451037244734,
+    "total_r": 8.077101273688495,
+    "profit_factor": 1.092399416709795,
+    "t_stat": 0.5520149498821029,
+    "avg_cost_r": 0.03989621251876009,
+    "avg_bars_held": 13.152046783625732
+  },
+  "random_walk": {
+    "runs": 10,
+    "mean_trades": 157.9,
+    "mean_total_r": -4.816178405206999,
+    "mean_avg_r": -0.031457222688018524,
+    "profitable_runs": 3,
+    "total_r_p95": 14.139349262146789,
+    "total_r_all": [
+      -6.75,
+      -20.11,
+      -14.25,
+      10.44,
+      -8.33,
+      17.16,
+      -1.51,
+      -24.26,
+      4.34,
+      -4.9
+    ]
+  },
+  "accounts": {
+    "600": {
+      "capped_risk": {
+        "start_equity": 600,
+        "final_equity": 600.0,
+        "return_pct": 0.0,
+        "trades_taken": 0,
+        "trades_skipped_min_lot": 191,
+        "median_risk_pct": 0.0,
+        "max_risk_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "halted_at": null
+      },
+      "forced_min_lot": {
+        "start_equity": 600,
+        "final_equity": 575.0049380078252,
+        "return_pct": -4.165843665362468,
+        "trades_taken": 3,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 4.856319653313857,
+        "max_risk_pct": 5.34561329950329,
+        "max_drawdown_pct": 10.146566578843142,
+        "halted_at": "2023-02-02 16:00:00"
+      }
+    },
+    "3000": {
+      "capped_risk": {
+        "start_equity": 3000,
+        "final_equity": 3179.4479244196013,
+        "return_pct": 5.981597480653389,
+        "trades_taken": 164,
+        "trades_skipped_min_lot": 17,
+        "median_risk_pct": 1.1171391536058315,
+        "max_risk_pct": 1.983255873025504,
+        "max_drawdown_pct": 10.307629093962412,
+        "halted_at": "2026-09-09 08:00:00"
+      },
+      "forced_min_lot": {
+        "start_equity": 3000,
+        "final_equity": 3557.6014172171444,
+        "return_pct": 18.58671390723814,
+        "trades_taken": 170,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 1.1453506027116698,
+        "max_risk_pct": 2.888723686633359,
+        "max_drawdown_pct": 10.365708499952275,
+        "halted_at": "2026-07-24 04:00:00"
+      }
+    }
+  },
+  "checks": {
+    "no_lookahead": true,
+    "enough_oos_trades (>=100)": true,
+    "profitable_after_costs (avg R > 0, t > 2)": false,
+    "survives_2x_costs": true,
+    "deflated_sharpe >= 0.95": false,
+    "pbo < 0.5": false,
+    "harness_sane (shuffled data loses)": true,
+    "beats 95% of shuffled runs": true
+  },
+  "verdict": "FAIL"
+}

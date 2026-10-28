@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MT5 AI Quantitative Trading Desk — Live Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/index.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">AURA QUANT</h1>
+        <span class="brand-sub">MT5 AI Quantitative Desk</span>
+      </div>
+    </div>
+
+    <!-- Live Ticker Bar -->
+    <div class="live-ticker" id="market-ticker">
+      <div class="ticker-item"><span class="sym">XAUUSD</span> <span class="val" id="tick-xau">--</span> <span class="spread" id="spread-xau">-- pts</span></div>
+      <div class="ticker-item"><span class="sym">BTCUSD</span> <span class="val" id="tick-btc">--</span></div>
+      <div class="ticker-item"><span class="sym">EURUSD</span> <span class="val" id="tick-eur">--</span></div>
+      <div class="ticker-item"><span class="sym">GBPUSD</span> <span class="val" id="tick-gbp">--</span></div>
+    </div>
+
+    <!-- Mode Selector & MT5 Connection Badge -->
+    <div class="nav-controls">
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="btn-mode-200" onclick="toggleMode('micro_200')">
+          <span class="dot"></span> $200 Account (0.01 Lots)
+        </button>
+        <button class="mode-btn" id="btn-mode-std" onclick="toggleMode('standard')">
+          Standard Pro
+        </button>
+      </div>
+
+      <div class="status-pill online" id="connection-status">
+        <span class="pulse-ring"></span>
+        <span class="status-text" id="status-label">MT5 CONNECTED</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Container -->
+  <main class="dashboard-grid">
+
+    <!-- Row 1: KPI Stat Cards -->
+    <section class="kpi-row">
+      <div class="kpi-card gold-glow">
+        <div class="kpi-header">
+          <span class="kpi-title">Account Balance</span>
+          <span class="kpi-icon">💰</span>
+        </div>
+        <div class="kpi-value" id="kpi-balance">$104,319.28</div>
+        <div class="kpi-sub positive" id="kpi-balance-sub">+$4,319.28 Realized Gain</div>
+      </div>
+
+      <div class="kpi-card blue-glow">
+        <div class="kpi-header">
+          <span class="kpi-title">Current Equity</span>
+          <span class="kpi-icon">📈</span>
+        </div>
+        <div class="kpi-value" id="kpi-equity">$104,538.17</div>
+        <div class="kpi-sub positive" id="kpi-equity-sub">+4.54% Net Growth</div>
+      </div>
+
+      <div class="kpi-card green-glow" id="card-floating">
+        <div class="kpi-header">
+          <span class="kpi-title">Floating PnL</span>
+          <span class="live-tag">LIVE</span>
+        </div>
+        <div class="kpi-value positive" id="kpi-floating">+$218.89</div>
+        <div class="kpi-sub" id="kpi-floating-sub">2 Active Positions Open</div>
+      </div>
+
+      <div class="kpi-card purple-glow">
+        <div class="kpi-header">
+          <span class="kpi-title">AI Win Rate</span>
+          <span class="kpi-icon">🎯</span>
+        </div>
+        <div class="kpi-value" id="kpi-winrate">100.0%</div>
+        <div class="kpi-sub" id="kpi-ratio">Ratio 1:3 • Profit Factor 14.2k</div>
+      </div>
+    </section>
+
+    <!-- Row 2: Multi-Agent AI Council & Live Market Chart -->
+    <section class="intel-row">
+
+      <!-- AI Council Deliberation Panel -->
+      <div class="glass-panel council-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span class="panel-icon">🏛️</span>
+            <div>
+              <h2 class="panel-title">Multi-Agent AI Council</h2>
+              <span class="panel-desc">Real-time cross-agent voting consensus</span>
+            </div>
+          </div>
+          <span class="badge ai-badge" id="ai-model-tag">GPT-5.6 LUNA ACTIVE</span>
+        </div>
+
+        <div class="agent-cards-grid">
+          <!-- Agent 1: Regime Agent -->
+          <div class="agent-card">
+            <div class="agent-top">
+              <span class="agent-name">📊 Regime Agent</span>
+              <span class="agent-status bull" id="regime-status">TRENDING BULL</span>
+            </div>
+            <div class="agent-stat">
+              <span class="label">Trend Strength (ADX):</span>
+              <span class="val" id="regime-adx">38.9</span>
+            </div>
+            <div class="bar-container">
+              <div class="bar-fill" id="regime-bar" style="width: 78%;"></div>
+            </div>
+            <span class="agent-detail" id="regime-detail">Price > EMA50, +DI > -DI. Longs permitted.</span>
+          </div>
+
+          <!-- Agent 2: Quant Alpha Model -->
+          <div class="agent-card">
+            <div class="agent-top">
+              <span class="agent-name">🧠 Quant LightGBM</span>
+              <span class="agent-status buy" id="quant-status">BUY (67% DOM)</span>
+            </div>
+            <div class="agent-stat">
+              <span class="label">Expected Value (EV):</span>
+              <span class="val positive" id="quant-ev">+$18.50 / lot</span>
+            </div>
+            <div class="bar-container">
+              <div class="bar-fill quant" id="quant-bar" style="width: 67%;"></div>
+            </div>
+            <span class="agent-detail" id="quant-detail">21 alpha features confirmed positive EV edge.</span>
+          </div>
+
+          <!-- Agent 3: Macro Analyst -->
+          <div class="agent-card">
+            <div class="agent-top">
+              <span class="agent-name">🌐 Macro Analyst (GPT-5.6)</span>
+              <span class="agent-status macro" id="macro-status">BULLISH</span>
+            </div>
+            <div class="agent-stat">
+              <span class="label">News Embargo:</span>
+              <span class="val safe" id="macro-lockout">CLEAR (NO VETO)</span>
+            </div>
+            <div class="bar-container">
+              <div class="bar-fill macro" id="macro-bar" style="width: 85%;"></div>
+            </div>
+            <span class="agent-detail" id="macro-detail">Real yields steady (1.85%), central banks buying gold.</span>
+          </div>
+        </div>
+
+        <!-- Consensus Action Banner -->
+        <div class="consensus-banner" id="consensus-box">
+          <div class="consensus-left">
+            <span class="consensus-badge buy" id="consensus-action">BUY CONSENSUS</span>
+            <div class="consensus-text">
+              <h3 id="consensus-title">Trend Pullback Long Execution Approved</h3>
+              <p id="consensus-sub">Confidence: 82% • Target: 1:3 RR (SL: $4.00, TP: $12.00 on 0.01 lots)</p>
+            </div>
+          </div>
+          <div class="consensus-score" id="consensus-score">0.82</div>
+        </div>
+      </div>
+
+      <!-- Live Chart & Execution Controls -->
+      <div class="glass-panel chart-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span class="panel-icon">⚡</span>
+            <div>
+              <h2 class="panel-title">XAU/USD Gold Live Feed</h2>
+              <span class="panel-desc" id="chart-sub">M5 Real-time Candlesticks & Execution Levels</span>
+            </div>
+          </div>
+          <div class="chart-price-display">
+            <span class="big-price" id="gold-live-price">$4,059.48</span>
+            <span class="price-change positive" id="gold-live-change">+1.06%</span>
+          </div>
+        </div>
+
+        <!-- Canvas Trading Chart -->
+        <div class="chart-canvas-wrapper">
+          <canvas id="trading-chart" width="600" height="240"></canvas>
+        </div>
+
+        <!-- Risk Controls & Quick Action Bar -->
+        <div class="quick-action-bar">
+          <div class="action-info">
+            <span class="risk-label">Current Risk Profile:</span>
+            <span class="risk-tag" id="active-risk-tag">0.01 Lots ($5 Max Risk • 1:3 Target)</span>
+          </div>
+          <button class="kill-btn" id="btn-kill-switch" onclick="triggerKillSwitch()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18.364 5.636a9 9 0 010 12.728m0 0l-12.728-12.728m12.728 12.728L5.636 5.636M12 3v9"/>
+            </svg>
+            EMERGENCY KILL SWITCH
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Row 3: Open Positions & Closed Deals Log -->
+    <section class="tables-row">
+
+      <!-- Active Open Positions -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Active Open Positions (<span id="open-count">0</span>)</h2>
+          <span class="badge demo-badge">DEMO SECURE</span>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Ticket</th>
+                <th>Symbol</th>
+                <th>Type</th>
+                <th>Lots</th>
+                <th>Open Price</th>
+                <th>Current</th>
+                <th>Stop Loss</th>
+                <th>Take Profit</th>
+                <th>Floating PnL</th>
+              </tr>
+            </thead>
+            <tbody id="positions-tbody">
+              <tr>
+                <td colspan="9" class="empty-state">No open positions. Monitoring market for signals...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Closed Realized Deals History -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Closed Deals History (Realized Profit)</h2>
+          <span class="badge profit-badge" id="history-total">+$2,852.80</span>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Ticket</th>
+                <th>Symbol</th>
+                <th>Volume</th>
+                <th>Exit Price</th>
+                <th>Profit ($)</th>
+                <th>Trigger Reason</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr>
+                <td colspan="7" class="empty-state">Loading history...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Row 4: Live Bot Terminal Execution Feed -->
+    <section class="bot-feed-row">
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span class="panel-icon">💻</span>
+            <div>
+              <h2 class="panel-title">Live Bot Engine & Candle Audit Feed</h2>
+              <span class="panel-desc">Real-time candle closes, multi-agent arbitration, and execution checks ($200 mode, 0.01 lots)</span>
+            </div>
+          </div>
+          <span class="badge ai-badge" id="bot-status-tag">ACTIVE SCANNING (M5)</span>
+        </div>
+        <div class="terminal-log-container" id="terminal-feed">
+          <div class="terminal-line system-line">[System] Initializing live bot feed...</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

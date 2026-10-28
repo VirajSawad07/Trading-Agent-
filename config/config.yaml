@@ -1,0 +1,28 @@
+symbol: "XAUUSD"
+timeframe: "M15"
+initial_capital: 100000.0
+
+# Market Specifications (XAU/USD Gold defaults, automatically updated from MT5 if connected)
+contract_size: 100.0       # 1 Lot = 100 Troy Oz
+point_size: 0.01           # Minimum price tick ($0.01)
+digits: 2
+
+# Baseline Backtest Assumptions
+trading_costs:
+  spread_points: 25        # 25 points = $0.25 on Gold (typical ECN spread)
+  commission_per_lot: 7.0  # $7 round-trip per 1.0 lot
+  slippage_points: 5       # 5 points = $0.05 execution slippage
+
+# Baseline Strategy Parameters (Dual EMA + ATR Stop)
+baseline_strategy:
+  fast_period: 20
+  slow_period: 50
+  atr_period: 14
+  atr_multiplier_sl: 2.0   # Stop-loss = 2.0 * ATR
+  atr_multiplier_tp: 3.0   # Take-profit = 3.0 * ATR (1:1.5 Risk-to-Reward)
+
+# Storage paths
+paths:
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
+  reports_dir: "reports"
