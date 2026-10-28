@@ -175,6 +175,19 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 - Conclusion: **nothing is tradeable yet.** Long-only gold edges were the 2023-26 bull market. The only skill-like lead is the H1 meta-model on both directions (consistent with a weak filter effect), not yet significant.
 - Ideas for next round (each adds trials; set a global trial budget first): chop/regime feature or stand-aside rule for sideways markets, expanding (not 2y rolling) training window for the meta-model, news blackout filter (roadmap item 2), a mean-reversion primary for ranging regimes.
 
+### Meta-model improvement round (trial budget: 2 variants x 9 configs, declared before running)
+- Added: `--anchored` (expanding training window, `make_folds(anchored=True)`), `meta_breakout_regime` (adds efficiency ratio 20/100, choppiness 14/100, EMA200 slope, ATR percentile), and "DSR (all trials)" that counts every config in every saved XAUUSD report (525 at this point). The pass check now uses the all-trials DSR. 42 tests pass.
+- Results, gold H1 2011-2026:
+
+| Variant | Trades | Avg R | t | DSR (all 525 trials) | PBO | Notes |
+|---|---|---|---|---|---|---|
+| Rolling 2y (previous) | 598 | +0.063 | 1.25 | n/a | 0.38 | Account sim hit the 10% kill switch in Dec 2017 |
+| Anchored | 246 | +0.013 | 0.16 | 0.09 | 0.44 | Worse; loses at 2x costs |
+| Anchored + regime features | 258 | +0.105 | 1.34 | 0.33 | 0.66 | Chop-year losses mostly gone (2018 +5, 2021-22 +3 vs -26 before), but profit concentrated in 2012 and 2026; PBO 0.66 |
+
+- **Budget spent; all fail.** Regime features do what they were meant to (fewer losses in sideways years) but the edge is still not significant and the config choice looks overfit (PBO 0.66).
+- Recommendation: stop tuning the breakout family. Either (a) research a different signal family (mean reversion in ranges, session effects) under a new declared budget, or (b) do step 5 (live plumbing) + step 6 (forward ledger) and paper-trade the regime variant on demo purely to collect truly unseen data. Not for real money.
+
 ### Not yet done
 - `src/download_data.py` still silently generates synthetic data; fix or delete it. Session flags in `indicators.py`/`alpha_features.py` assume UTC but bars are server time (UTC+2/+3).
 - Decide how to handle gold sizing at $600 (fund more, find a broker with 0.001 lots, or trade EURUSD live first).
