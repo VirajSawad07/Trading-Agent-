@@ -215,6 +215,15 @@ Written 2026-10-28. Read this first in the next session. No code has been change
     - With **no edge**: 0.5% risk gives 18% / 10%; 1% risk gives 51% / 34%.
   - 1% risk would have hit about -10.9% at the backtest's worst drawdown, enough to fail a typical 10% prop limit.
 
+### Multi-market test, declared before running (2026-10-29)
+- **Goal:** more trades at the same per-trade edge. The user wants to earn more, and at about 16 trades a year gold alone makes about +0.8% a year at 0.5% risk.
+- **Budget, fixed in advance:**
+  - One strategy, exactly as on gold: `meta_breakout_regime`, anchored, its 9 configs, the same bracket (SL 2x / TP 3x ATR) and features.
+  - Six markets: XAGUSD, US500, USTEC, US30, GBPUSD, AUDUSD. That's 54 trials, with no re-runs, no tweaks and no dropping a market after seeing its result.
+- **Data:** `*_H1_mt5_clean.csv`. US500 and US30 start in 2016, because broker "H1" bars before that are really daily. Both have a hole from Jul to Sep 2025. USTEC only starts in 2022-07, so expect low statistical power there.
+- **Costs:** `config/symbols.yaml`, with spreads at roughly the 75th percentile of history.
+- **Rule:** a market counts only if it passes every harness check. Six tries means one could pass by luck, so any single pass also needs a forward demo before it's trusted.
+
 ### Not yet done
 - Run step 7: 4 to 8 weeks of demo paper trading, then compare forward R with the backtest (+0.105 R per trade, about 17 trades a year).
 - Not yet tested on demo: a real order fill, the SL/TP re-anchor, and closed-trade reconciliation. The first real signal will exercise them, so check the ledger after it.
