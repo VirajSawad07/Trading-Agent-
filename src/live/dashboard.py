@@ -42,8 +42,11 @@ def ledger_view(ledger_path: Path, state_path: Path, now: float = None) -> dict:
     now = now or time.time()
     records = read(ledger_path)
     ok, n, msg = verify(ledger_path)
-    state = json.loads(state_path.read_text()) if state_path.exists() else {}
-    age = now - state_path.stat().st_mtime if state_path.exists() else None
+    try:
+        state = json.loads(state_path.read_text())
+        age = now - state_path.stat().st_mtime
+    except (OSError, ValueError):  # missing, or mid-save by the trader
+        state, age = {}, None
     stopped = bool(records) and records[-1]["event"] == "session_stop"
     closed = [r for r in records if r["event"] == "trade_closed"]
     cum, curve = 0.0, []

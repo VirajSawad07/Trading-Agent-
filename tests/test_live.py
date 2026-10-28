@@ -204,3 +204,26 @@ def test_dashboard_view_reads_ledger_and_heartbeat(tmp_path):
     old = os.path.getmtime(state_path) - 600
     os.utime(state_path, (old, old))
     assert not ledger_view(led_path, state_path)["running"]  # no heartbeat for 10 min
+
+
+def test_state_save_survives_a_busy_file(tmp_path, monkeypatch):
+    from pathlib import Path
+    from src.live.paper_trader import State
+    path, calls = tmp_path / "s.json", {"n": 0}
+    real = Path.replace
+
+    def flaky(self, target):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise PermissionError(5, "Access is denied")  # what Windows raises while a reader has it open
+        return real(self, target)
+    monkeypatch.setattr(Path, "replace", flaky)
+    monkeypatch.setattr("src.live.paper_trader.time.sleep", lambda s: None)
+    State(sizing_equity=100000.0).save(path)
+    assert json.loads(path.read_text())["sizing_equity"] == 100000.0
+
+
+def test_only_a_live_account_is_fatal():
+    from src.execution.demo_gateway import LiveAccountError
+    assert issubclass(LiveAccountError, PermissionError)  # old callers still catch it
+    assert not isinstance(PermissionError(5, "Access is denied"), LiveAccountError)

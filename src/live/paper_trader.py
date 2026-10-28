@@ -30,7 +30,7 @@ from typing import Optional
 
 import pandas as pd
 
-from src.execution.demo_gateway import DemoGateway
+from src.execution.demo_gateway import DemoGateway, LiveAccountError
 from src.harness.costs import load_cost_model
 from src.harness.meta_strategy import MetaLabelBreakout
 from src.harness.walkforward import fit_for_live
@@ -131,7 +131,15 @@ class State:
     def save(self, path: Path):
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(asdict(self), indent=2, default=str))
-        tmp.replace(path)  # atomic: a crash never leaves half a state file
+        # Atomic swap, so a crash never leaves half a file. On Windows it fails while another
+        # process (the dashboard, antivirus) has the file open, so retry briefly.
+        for _ in range(20):
+            try:
+                tmp.replace(path)
+                return
+            except PermissionError:
+                time.sleep(0.1)
+        log.warning("state file busy; will save again next poll")
 
 
 # ----------------------------------------------------------------------------- trader
@@ -404,7 +412,7 @@ class PaperTrader:
                             continue
                     self.gateway.verify_demo_account()
                     self.step()
-                except PermissionError:
+                except LiveAccountError:  # only a non-demo account stops the bot; file errors etc. are logged
                     raise
                 except Exception as e:
                     log.exception("step failed")

@@ -26,6 +26,10 @@ except ImportError:
 RETRYABLE = {10004, 10020, 10021}  # REQUOTE, PRICE_CHANGED, PRICE_OFF
 
 
+class LiveAccountError(PermissionError):
+    """The terminal is logged into a non-demo account. Callers must stop, never retry."""
+
+
 @dataclass
 class ExecutionResult:
     success: bool
@@ -62,7 +66,7 @@ class DemoGateway:
         is_demo = acc.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO
 
         if self.demo_account_only and not is_demo:
-            raise PermissionError(
+            raise LiveAccountError(
                 f"SECURITY VIOLATION: MT5 account #{acc.login} is a LIVE/CONTEST account (trade_mode={acc.trade_mode}). "
                 "Execution is strictly locked to DEMO accounts only by policy."
             )
