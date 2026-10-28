@@ -172,3 +172,26 @@ class MetaLabelBreakout:
         prob = model.clf.predict_proba(X)[:, 1]
         out.loc[idx[prob < params["threshold"]], "signal"] = 0
         return out
+
+    def explain_last(self, bars, params, model) -> dict:
+        """The decision for the last bar, with what went into it (for the live decision ledger).
+        Same rule as signals(): the breakout is taken only if the model's probability clears
+        the threshold."""
+        n = params["lookback"]
+        primary = self._primary(bars, params)
+        last = primary.iloc[-1]
+        upper = float(bars["high"].iloc[-n - 1:-1].max())
+        lower = float(bars["low"].iloc[-n - 1:-1].min())
+        prob = None
+        if int(last["signal"]) != 0 and model is not None and model.clf is not None:
+            X = self._features(bars, primary, n).iloc[[-1]]
+            prob = float(model.clf.predict_proba(X)[0, 1])
+        take = prob is not None and prob >= params["threshold"]
+        return {
+            "bar_time": str(bars.index[-1]), "close": float(bars["close"].iloc[-1]),
+            "channel_high": upper, "channel_low": lower,
+            "breakout": int(last["signal"]), "probability": prob, "threshold": params["threshold"],
+            "signal": int(last["signal"]) if take else 0,
+            "sl_dist": float(last["sl_dist"]), "tp_dist": float(last["tp_dist"]),
+            "model_ready": model is not None and model.clf is not None,
+        }

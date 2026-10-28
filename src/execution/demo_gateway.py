@@ -1,5 +1,15 @@
-"""MT5 Demo Execution Gateway with Strict Safety Interlocks."""
+"""MT5 Demo Execution Gateway with Strict Safety Interlocks.
 
+Every position this bot opens carries its magic number, and every query/close here is
+filtered by it, so the bot never sees or touches trades it did not open.
+
+Orders are idempotent: each carries a client tag (in the comment) and, before any retry,
+the gateway checks whether a position with that tag already exists. Only retcodes that
+mean "nothing was filled" (requote / price moved) are retried, so a slow or ambiguous
+reply can never turn into a double fill.
+"""
+
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -11,6 +21,9 @@ try:
     MT5_AVAILABLE = True
 except ImportError:
     MT5_AVAILABLE = False
+
+# Broker replies that guarantee no fill happened, so a retry is safe.
+RETRYABLE = {10004, 10020, 10021}  # REQUOTE, PRICE_CHANGED, PRICE_OFF
 
 
 @dataclass
@@ -64,24 +77,24 @@ class DemoGateway:
             "is_demo": is_demo,
         }
 
-    def get_account_state(self, daily_starting_equity: Optional[float] = None) -> AccountState:
+    def bot_positions(self, symbol: Optional[str] = None) -> list:
+        """Open positions opened by this bot (matching magic number)."""
+        positions = mt5.positions_get(symbol=symbol) if symbol else mt5.positions_get()
+        return [p for p in (positions or []) if p.magic == self.magic_number]
+
+    def get_account_state(self, daily_starting_equity: Optional[float] = None,
+                          peak_equity: Optional[float] = None) -> AccountState:
         acc = mt5.account_info()
         if acc is None:
-            mt5.initialize()
-            acc = mt5.account_info()
-        if acc is None:
             raise ConnectionError("MT5 account info unavailable.")
-
-        positions = mt5.positions_get()
-        num_positions = len(positions) if positions is not None else 0
-        starting_equity = daily_starting_equity or acc.equity
 
         return AccountState(
             balance=acc.balance,
             equity=acc.equity,
-            open_positions=num_positions,
-            daily_starting_equity=starting_equity,
+            open_positions=len(self.bot_positions()),
+            daily_starting_equity=daily_starting_equity or acc.equity,
             is_demo=(acc.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO),
+            peak_equity=peak_equity,
         )
 
     def get_market_conditions(self, symbol: str = "XAUUSD") -> MarketConditions:
@@ -100,127 +113,129 @@ class DemoGateway:
             ask=tick.ask,
         )
 
-    def send_order(self, proposal: OrderProposal, lots: float) -> ExecutionResult:
-        """Dispatches an order to the MT5 terminal with SL and TP attached."""
-        self.verify_demo_account()
+    def _filling_mode(self, symbol: str) -> int:
+        """Pick a filling mode the symbol actually supports instead of trial and error."""
+        info = mt5.symbol_info(symbol)
+        flags = info.filling_mode if info else 0
+        if flags & 1:
+            return mt5.ORDER_FILLING_FOK
+        if flags & 2:
+            return mt5.ORDER_FILLING_IOC
+        return mt5.ORDER_FILLING_RETURN
 
-        is_buy = proposal.action == "BUY"
-        tick = mt5.symbol_info_tick(proposal.symbol)
-        if tick is None:
-            return ExecutionResult(
-                success=False,
-                ticket=None,
-                action=proposal.action,
-                symbol=proposal.symbol,
-                lots=lots,
-                price=0.0,
-                sl=proposal.stop_loss,
-                tp=proposal.take_profit,
-                timestamp=datetime.now().isoformat(),
-                message=f"Failed to get live tick for {proposal.symbol}",
-            )
+    def _find_tagged(self, symbol: str, tag: str):
+        return next((p for p in self.bot_positions(symbol) if p.comment == tag), None)
 
-        fill_price = tick.ask if is_buy else tick.bid
-        order_type = mt5.ORDER_TYPE_BUY if is_buy else mt5.ORDER_TYPE_SELL
-
-        # Try IOC first, with fallback to RETURN
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": proposal.symbol,
-            "volume": float(lots),
-            "type": order_type,
-            "price": float(fill_price),
-            "sl": float(proposal.stop_loss),
-            "tp": float(proposal.take_profit),
-            "deviation": 20,
-            "magic": self.magic_number,
-            "comment": "AI_Gold_MultiAgent",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
-
-        result = mt5.order_send(request)
-        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-            # Fallback to ORDER_FILLING_RETURN if broker doesn't support IOC
-            request["type_filling"] = mt5.ORDER_FILLING_RETURN
-            result = mt5.order_send(request)
-
-        if result is None:
-            err = mt5.last_error()
-            return ExecutionResult(
-                success=False,
-                ticket=None,
-                action=proposal.action,
-                symbol=proposal.symbol,
-                lots=lots,
-                price=fill_price,
-                sl=proposal.stop_loss,
-                tp=proposal.take_profit,
-                timestamp=datetime.now().isoformat(),
-                message=f"order_send failed: {err}",
-            )
-
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            return ExecutionResult(
-                success=False,
-                ticket=None,
-                action=proposal.action,
-                symbol=proposal.symbol,
-                lots=lots,
-                price=fill_price,
-                sl=proposal.stop_loss,
-                tp=proposal.take_profit,
-                timestamp=datetime.now().isoformat(),
-                message=f"Order rejected by broker (retcode={result.retcode}: {result.comment})",
-            )
-
+    def _result(self, proposal, lots, price, message, success=False, ticket=None) -> ExecutionResult:
         return ExecutionResult(
-            success=True,
-            ticket=result.order,
-            action=proposal.action,
-            symbol=proposal.symbol,
-            lots=lots,
-            price=result.price,
-            sl=proposal.stop_loss,
-            tp=proposal.take_profit,
-            timestamp=datetime.now().isoformat(),
-            message=f"Order executed successfully: #{result.order}",
+            success=success, ticket=ticket, action=proposal.action, symbol=proposal.symbol, lots=lots,
+            price=price, sl=proposal.stop_loss, tp=proposal.take_profit,
+            timestamp=datetime.now().isoformat(), message=message,
         )
 
-    def close_all_positions(self, symbol: Optional[str] = None) -> List[Dict]:
-        """Emergency liquidator: Closes all open positions matching symbol or magic number."""
+    def send_order(self, proposal: OrderProposal, lots: float, client_tag: Optional[str] = None,
+                   max_retries: int = 3) -> ExecutionResult:
+        """Dispatches an order to the MT5 terminal with SL and TP attached.
+
+        client_tag: unique id for this decision (max 31 chars). If a position with this tag
+        already exists, nothing is sent and that position is reported instead.
+        """
         self.verify_demo_account()
-        positions = mt5.positions_get(symbol=symbol) if symbol else mt5.positions_get()
-        if not positions:
-            return []
+        tag = (client_tag or "AI_Gold_MultiAgent")[:31]
 
-        results = []
-        for pos in positions:
-            tick = mt5.symbol_info_tick(pos.symbol)
-            if not tick:
-                continue
+        if client_tag:
+            existing = self._find_tagged(proposal.symbol, tag)
+            if existing:
+                return self._result(proposal, existing.volume, existing.price_open,
+                                    f"Already filled earlier as #{existing.ticket}; not resent.", True, existing.ticket)
 
-            close_type = mt5.ORDER_TYPE_SELL if pos.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
-            price = tick.bid if pos.type == mt5.POSITION_TYPE_BUY else tick.ask
-
-            close_request = {
+        is_buy = proposal.action == "BUY"
+        filling = self._filling_mode(proposal.symbol)
+        last_msg = "not sent"
+        for attempt in range(max_retries):
+            tick = mt5.symbol_info_tick(proposal.symbol)
+            if tick is None:
+                return self._result(proposal, lots, 0.0, f"Failed to get live tick for {proposal.symbol}")
+            fill_price = tick.ask if is_buy else tick.bid
+            request = {
                 "action": mt5.TRADE_ACTION_DEAL,
-                "position": pos.ticket,
-                "symbol": pos.symbol,
-                "volume": pos.volume,
-                "type": close_type,
-                "price": price,
+                "symbol": proposal.symbol,
+                "volume": float(lots),
+                "type": mt5.ORDER_TYPE_BUY if is_buy else mt5.ORDER_TYPE_SELL,
+                "price": float(fill_price),
+                "sl": float(proposal.stop_loss),
+                "tp": float(proposal.take_profit),
                 "deviation": 20,
                 "magic": self.magic_number,
-                "comment": "KillSwitch_Close",
+                "comment": tag,
                 "type_time": mt5.ORDER_TIME_GTC,
-                "type_filling": mt5.ORDER_FILLING_IOC,
+                "type_filling": filling,
             }
-            res = mt5.order_send(close_request)
-            if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
-                close_request["type_filling"] = mt5.ORDER_FILLING_RETURN
-                res = mt5.order_send(close_request)
+            result = mt5.order_send(request)
 
-            results.append({"ticket": pos.ticket, "symbol": pos.symbol, "success": res is not None and res.retcode == mt5.TRADE_RETCODE_DONE})
+            if result is not None and result.retcode == mt5.TRADE_RETCODE_DONE:
+                return self._result(proposal, lots, result.price, f"Order executed successfully: #{result.order}",
+                                    True, result.order)
 
-        return results
+            # Ambiguous outcome (no reply, timeout, anything not known-safe): look before retrying.
+            time.sleep(0.5)
+            existing = self._find_tagged(proposal.symbol, tag) if client_tag else None
+            if existing:
+                return self._result(proposal, existing.volume, existing.price_open,
+                                    f"Filled despite reply {getattr(result, 'retcode', None)}: #{existing.ticket}",
+                                    True, existing.ticket)
+            if result is None:
+                last_msg = f"order_send failed: {mt5.last_error()}"
+                break
+            last_msg = f"Order rejected by broker (retcode={result.retcode}: {result.comment})"
+            if result.retcode not in RETRYABLE:
+                break
+
+        return self._result(proposal, lots, 0.0, last_msg)
+
+    def modify_sltp(self, ticket: int, symbol: str, sl: float, tp: float) -> bool:
+        """Move a bot position's stop/target (used to re-anchor them to the actual fill price)."""
+        res = mt5.order_send({"action": mt5.TRADE_ACTION_SLTP, "position": ticket, "symbol": symbol,
+                              "sl": float(sl), "tp": float(tp), "magic": self.magic_number})
+        return res is not None and res.retcode == mt5.TRADE_RETCODE_DONE
+
+    def close_position(self, pos, comment: str = "Bot_Close") -> bool:
+        tick = mt5.symbol_info_tick(pos.symbol)
+        if not tick:
+            return False
+        is_buy = pos.type == mt5.POSITION_TYPE_BUY
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "position": pos.ticket,
+            "symbol": pos.symbol,
+            "volume": pos.volume,
+            "type": mt5.ORDER_TYPE_SELL if is_buy else mt5.ORDER_TYPE_BUY,
+            "price": tick.bid if is_buy else tick.ask,
+            "deviation": 20,
+            "magic": self.magic_number,
+            "comment": comment[:31],
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._filling_mode(pos.symbol),
+        }
+        res = mt5.order_send(request)
+        if res is not None and res.retcode == mt5.TRADE_RETCODE_DONE:
+            return True
+        # Closing by position ticket is naturally idempotent: retry only if it is still open.
+        time.sleep(0.5)
+        if not any(p.ticket == pos.ticket for p in self.bot_positions(pos.symbol)):
+            return True
+        if res is not None and res.retcode in RETRYABLE:
+            res = mt5.order_send({**request, "price": (mt5.symbol_info_tick(pos.symbol).bid if is_buy
+                                                       else mt5.symbol_info_tick(pos.symbol).ask)})
+            return res is not None and res.retcode == mt5.TRADE_RETCODE_DONE
+        return False
+
+    def close_all_positions(self, symbol: Optional[str] = None) -> List[Dict]:
+        """Emergency liquidator: closes every position this bot opened (magic number match)."""
+        self.verify_demo_account()
+        return [{"ticket": p.ticket, "symbol": p.symbol, "success": self.close_position(p, "KillSwitch_Close")}
+                for p in self.bot_positions(symbol)]
+
+    def position_deals(self, position_id: int) -> list:
+        """All deals (entry and exit) of one position, including broker-side SL/TP exits."""
+        return list(mt5.history_deals_get(position=position_id) or [])

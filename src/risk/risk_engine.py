@@ -27,6 +27,7 @@ class AccountState:
     open_positions: int
     daily_starting_equity: float
     is_demo: bool = True
+    peak_equity: Optional[float] = None  # highest equity seen; enables the total-drawdown breaker
 
 
 @dataclass
@@ -52,6 +53,8 @@ class RiskEngine:
         self.lot_step = limits.get("lot_step", 0.01)
         self.demo_account_only = limits.get("demo_account_only", True)
         self.enforce_stop_loss = limits.get("enforce_stop_loss", True)
+        # The broker minimum lot may risk more than 1%; allow it only up to this cap.
+        self.max_min_lot_risk_pct = limits.get("max_min_lot_risk_pct", 2 * self.max_risk_per_trade_pct)
         self.kill_switch_active = False
 
     def trigger_kill_switch(self, reason: str):
@@ -95,10 +98,9 @@ class RiskEngine:
 
         # Clamp between min and max allowed
         if stepped_lots < self.min_lot_size:
-            # On small/micro accounts (e.g. <= $500), allow minimum 0.01 lots so small accounts can trade
-            if equity <= 500.0 and self.min_lot_size <= 0.01:
-                return 0.01
-            return 0.0
+            # Small accounts: the minimum lot is allowed only if its risk stays under the cap.
+            min_lot_risk = self.min_lot_size * loss_per_lot / max(equity, 1e-9)
+            return self.min_lot_size if min_lot_risk <= self.max_min_lot_risk_pct else 0.0
         return min(stepped_lots, self.max_lot_size)
 
     def validate_proposal(
@@ -107,8 +109,12 @@ class RiskEngine:
         account: AccountState,
         market: MarketConditions,
         contract_size: float = 100.0,
+        sizing_equity: Optional[float] = None,
     ) -> Tuple[bool, str, Optional[float]]:
         """Audits an AI trade proposal against all safety boundaries.
+
+        sizing_equity: size the trade as if the account held this much (e.g. the planned
+        real-money balance). Breakers still use the account state passed in.
         
         Returns:
             (approved: bool, rejection_reason: str, approved_lots: Optional[float])
@@ -132,6 +138,13 @@ class RiskEngine:
             self.trigger_kill_switch(f"Daily drawdown limit breached ({daily_loss_pct:.2%} >= {self.max_daily_loss_pct:.2%}).")
             return False, f"Daily drawdown limit reached ({daily_loss_pct:.2%}).", None
 
+        # 4b. Total drawdown from the equity peak
+        if account.peak_equity:
+            dd = (account.peak_equity - account.equity) / max(account.peak_equity, 1.0)
+            if dd >= self.max_total_drawdown_pct:
+                self.trigger_kill_switch(f"Total drawdown limit breached ({dd:.2%} >= {self.max_total_drawdown_pct:.2%}).")
+                return False, f"Total drawdown limit reached ({dd:.2%} from peak).", None
+
         # 5. Spread Check (Protection against news volatility / slippage)
         if market.current_spread_points > self.max_spread_points:
             return False, f"Spread too high ({market.current_spread_points:.1f} pts > {self.max_spread_points} pts limit).", None
@@ -149,13 +162,14 @@ class RiskEngine:
 
         # 7. Dynamic Position Sizing
         approved_lots = self.calculate_lot_size(
-            equity=account.equity,
+            equity=sizing_equity if sizing_equity else account.equity,
             entry_price=proposal.entry_price,
             stop_loss_price=proposal.stop_loss,
             contract_size=contract_size,
         )
 
         if approved_lots < self.min_lot_size:
-            return False, f"Calculated position size ({approved_lots} lots) below broker minimum ({self.min_lot_size}).", None
+            return False, (f"Even the minimum lot ({self.min_lot_size}) would risk more than "
+                           f"{self.max_min_lot_risk_pct:.0%} of equity with this stop."), None
 
         return True, "Approved", approved_lots

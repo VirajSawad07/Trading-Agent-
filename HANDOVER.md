@@ -188,7 +188,28 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 - **Budget spent; all fail.** Regime features do what they were meant to (fewer losses in sideways years) but the edge is still not significant and the config choice looks overfit (PBO 0.66).
 - Recommendation: stop tuning the breakout family. Either (a) research a different signal family (mean reversion in ranges, session effects) under a new declared budget, or (b) do step 5 (live plumbing) + step 6 (forward ledger) and paper-trade the regime variant on demo purely to collect truly unseen data. Not for real money.
 
+### Steps 5 and 6 done: live plumbing + forward ledger (2026-10-28)
+- **Risk engine** (`src/risk/risk_engine.py`): total-drawdown breaker measured from the equity peak; `sizing_equity` input kept separate from the breakers. The "any account under $500 may trade 0.01 lots" rule is gone: the min lot is allowed only if it risks at most `max_min_lot_risk_pct` (2%, in `config/risk_limits.yaml`).
+- **Gateway** (`src/execution/demo_gateway.py`): every query and close is filtered by magic number. The filling mode is read from the symbol, with no IOC-to-RETURN fallback. Orders carry a client tag, and before any retry the gateway checks whether the tagged position already exists. Only REQUOTE / PRICE_CHANGED / PRICE_OFF are retried, so there are no double fills. New methods: `modify_sltp` and `position_deals`.
+- **`src/live_trader.py`** (old multi-agent path): no longer overwrites real equity; resets the daily baseline each day; tracks peak equity; always uses risk-engine lots (`--lot-size` is now only a cap); no TP override; defaults to H1. It still runs the untested QuantAgent, so **use the paper trader instead**.
+- **`src/live/paper_trader.py`** (new): runs the harness-tested `meta_breakout_regime` with anchored training, using the same rules as the simulator (`plan_actions`):
+  - decide at bar close, enter at the next open, stop 2x ATR / target 3x ATR re-anchored to the fill;
+  - an opposite signal reverses the position; close after 240 bars.
+  - **Refit:** every 3 months via `fit_for_live`, which reuses the walk-forward fold code (a test proves it picks the same config as the backtest fold).
+  - **Safety:** demo check every loop; reconnect with backoff; no new entries if the bar opened more than 15 minutes ago or the price feed has been stale for 2 minutes.
+  - **Equity:** sizing equity (default $3,000) plus the bot's own P&L, which feeds the daily and total breakers. A 10% drawdown halts trading for good.
+  - **State:** kept in `reports/live/state_*.json`; the model is saved in `models/live/` (both gitignored).
+  - Default magic is **777101**, separate from the old trader's 888999.
+- **`src/live/ledger.py`** (new): append-only SHA-256 hash chain. Every bar decision, order, block, error and closed trade gets a plain-English `reason`. Closed trades record P&L in USD and in R, plus the fill cost compared with the tested next-open fill. Commands: `python -m src.live.ledger verify|summary <file>`. Dry runs write to a separate `_dry` ledger.
+- **Verified on demo #114665794 (dry run):**
+  - History 2009 to now has 100,004 bars; the fit takes about 2s and chose lookback 100 / threshold 0.5.
+  - The first decision was "No breakout". A forced-signal dry run gave "would BUY 0.01 lots, risking $23.54 (0.78%)" at $3,000. At $600 it was blocked because the min lot would risk more than 2%.
+- 55 tests pass, including the new `tests/test_live.py` (13 tests).
+- **To start paper trading:** `python -m src.live.paper_trader` with MT5 open on demo; leave it running for 4 to 8 weeks (step 7). Check progress with `python -m src.live.ledger summary reports/live/ledger_XAUUSD_H1.jsonl`. Expect only a few trades per month.
+
 ### Not yet done
+- Run step 7: 4 to 8 weeks of demo paper trading, then compare forward R with the backtest (+0.105 R per trade, about 17 trades a year).
+- Not yet tested on demo: a real order fill, the SL/TP re-anchor, and closed-trade reconciliation. The first real signal will exercise them, so check the ledger after it.
 - `src/download_data.py` still silently generates synthetic data; fix or delete it. Session flags in `indicators.py`/`alpha_features.py` assume UTC but bars are server time (UTC+2/+3).
 - Decide how to handle gold sizing at $600 (fund more, find a broker with 0.001 lots, or trade EURUSD live first).
 - Read `src/features/alpha_features.py` and `src/features/indicators.py` and audit them for leakage.

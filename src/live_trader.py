@@ -1,6 +1,7 @@
 """Live MT5 Demo Trading Engine & Candle Polling Loop."""
 
 import argparse
+import logging
 import os
 import sys
 import time
@@ -25,16 +26,18 @@ from src.risk.risk_engine import RiskEngine
 def run_live_trader(
     symbols: Optional[List[str]] = None,
     symbol: str = "XAUUSD",
-    timeframe: str = "M5",
+    timeframe: str = "H1",
     poll_interval: int = 5,
-    capital: Optional[float] = 200.0,
-    fixed_lots: Optional[float] = 0.01,
+    capital: Optional[float] = None,
+    fixed_lots: Optional[float] = None,
 ):
+    """capital: size trades as if the account held this much (risk checks still use real equity).
+    fixed_lots: an upper cap on the risk engine's lot size, never a bypass of it."""
     if not symbols:
         symbols = [symbol]
 
     console = Console()
-    mode_desc = f"$200 Wallet Simulation • {fixed_lots} Micro-Lots • 1:3 RR" if fixed_lots else "Standard Dynamic Risk"
+    mode_desc = (f"Sizing as ${capital:,.0f}" if capital else "Sizing on real equity") + (f" • lot cap {fixed_lots}" if fixed_lots else "")
     console.print(Panel.fit(
         f"[bold gold1]MT5 AI Quantitative Trading Desk — Live Execution Engine[/bold gold1]\n"
         f"[cyan]Universe: {', '.join(symbols)} | Timeframe: {timeframe} | Poll: {poll_interval}s\n"
@@ -57,7 +60,7 @@ def run_live_trader(
         account_info = gateway.verify_demo_account()
         console.print(f"[bold green]Verified Demo Account:[/bold green] #{account_info['login']} ({account_info['name']}) | Broker Balance: ${account_info['balance']:,.2f} | Broker Equity: ${account_info['equity']:,.2f}")
         if capital:
-            console.print(f"[bold cyan]Capital Profile Active:[/bold cyan] Simulating wallet capital of [bold yellow]${capital:.2f} USD[/bold yellow] with strict [bold yellow]{fixed_lots} lots[/bold yellow].")
+            console.print(f"[bold cyan]Sizing Profile:[/bold cyan] trades sized as if the account held [bold yellow]${capital:,.2f}[/bold yellow]; breakers use real equity.")
     except Exception as e:
         console.print(f"[bold red]Safety Check Failed:[/bold red] {e}")
         connector.disconnect()
@@ -73,7 +76,9 @@ def run_live_trader(
     coordinator = DecisionCoordinator(quant_agent=quant_agent, allow_technical_fallback=True)
     risk_engine = RiskEngine()
 
-    daily_starting_equity = capital if capital else account_info["equity"]
+    daily_starting_equity = account_info["equity"]
+    peak_equity = account_info["equity"]
+    current_day = datetime.now().date()
     last_processed_candle_times = {sym: None for sym in symbols}
 
     console.print(f"[bold green]Agent Ready![/bold green] Actively scanning [bold yellow]{', '.join(symbols)} ({timeframe})[/bold yellow] candles. Press [bold red]Ctrl+C[/bold red] to stop.\n")
@@ -81,18 +86,18 @@ def run_live_trader(
     try:
         while True:
             try:
-                account_state = gateway.get_account_state(daily_starting_equity=daily_starting_equity)
+                account_state = gateway.get_account_state(daily_starting_equity=daily_starting_equity,
+                                                          peak_equity=peak_equity)
+                if datetime.now().date() != current_day:  # new day: reset the daily-loss baseline
+                    current_day = datetime.now().date()
+                    daily_starting_equity = account_state.equity
+                    account_state.daily_starting_equity = daily_starting_equity
+                peak_equity = max(peak_equity, account_state.equity)
             except Exception as acc_err:
                 console.print(f"[yellow]MT5 connection retry:[/yellow] {acc_err}. Attempting reconnection...")
                 connector.connect()
                 time.sleep(poll_interval)
                 continue
-
-            # Override with small account parameters if requested
-            if capital:
-                account_state.equity = capital
-                account_state.balance = capital
-                account_state.daily_starting_equity = capital
 
             for sym in symbols:
                 try:
@@ -132,13 +137,6 @@ def run_live_trader(
 
                         # Risk Validation & Execution
                         if decision.action in ("BUY", "SELL") and decision.proposal:
-                            # Enforce exact 1:3 ratio
-                            sl_dist = abs(decision.proposal.entry_price - decision.proposal.stop_loss)
-                            if decision.proposal.action == "BUY":
-                                decision.proposal.take_profit = round(decision.proposal.entry_price + (3.0 * sl_dist), 2)
-                            else:
-                                decision.proposal.take_profit = round(decision.proposal.entry_price - (3.0 * sl_dist), 2)
-
                             sym_specs = connector.get_symbol_specs(sym)
                             sym_contract_size = sym_specs.get("contract_size", 100.0)
 
@@ -148,12 +146,13 @@ def run_live_trader(
                                 account=account_state,
                                 market=market,
                                 contract_size=sym_contract_size,
+                                sizing_equity=capital,
                             )
 
-                            target_lots = fixed_lots if fixed_lots else calculated_lots
+                            target_lots = min(calculated_lots, fixed_lots) if (calculated_lots and fixed_lots) else calculated_lots
 
                             if approved and target_lots:
-                                console.print(f"[bold green]RISK APPROVED:[/bold green] Size set to [bold yellow]{target_lots} lots[/bold yellow] (1:3 RR -> SL: ${decision.proposal.stop_loss:.2f}, TP: ${decision.proposal.take_profit:.2f})")
+                                console.print(f"[bold green]RISK APPROVED:[/bold green] Size set to [bold yellow]{target_lots} lots[/bold yellow] (SL: ${decision.proposal.stop_loss:.2f}, TP: ${decision.proposal.take_profit:.2f})")
                                 exec_res = gateway.send_order(proposal=decision.proposal, lots=target_lots)
                                 if exec_res.success:
                                     console.print(f"[bold green]ORDER FILLED on MT5 Demo:[/bold green] #{exec_res.ticket} {exec_res.action} {exec_res.lots} lots @ ${exec_res.price:.2f}")
@@ -165,6 +164,7 @@ def run_live_trader(
                             console.print(f"[dim]{sym} Decision: HOLD ({decision.audit_trail[-1]})[/dim]")
 
                 except Exception as bar_err:
+                    logging.exception("live_trader error on %s", sym)
                     console.print(f"[yellow]Warning [{sym}]:[/yellow] {bar_err}")
 
             time.sleep(poll_interval)
@@ -180,10 +180,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Live MT5 Demo AI Trader.")
     parser.add_argument("--symbol", type=str, default="XAUUSD", help="Single symbol to trade")
     parser.add_argument("--symbols", nargs="+", default=None, help="List of symbols to scan simultaneously (e.g. --symbols XAUUSD EURUSD GBPUSD)")
-    parser.add_argument("--timeframe", type=str, default="M5", help="Timeframe (e.g. M5, M15, H1)")
+    parser.add_argument("--timeframe", type=str, default="H1", help="Timeframe (e.g. H1, H4)")
     parser.add_argument("--poll", type=int, default=5, help="Poll interval in seconds")
-    parser.add_argument("--capital", type=float, default=200.0, help="Simulated wallet capital in USD (e.g. 200.0)")
-    parser.add_argument("--lot-size", type=float, default=0.01, help="Fixed lot size (e.g. 0.01 micro-lot)")
+    parser.add_argument("--capital", type=float, default=None, help="Size trades as if the account held this much USD")
+    parser.add_argument("--lot-size", type=float, default=None, help="Upper cap on the risk engine's lot size")
     args = parser.parse_args()
 
     active_symbols = args.symbols if args.symbols else [args.symbol]

@@ -131,27 +131,53 @@ def run_walk_forward(
     return WalkForwardResult(oos, folds, chosen, config_daily, daily_r(oos, days), len(grid))
 
 
+def _val_trades(bars, strategy, costs, f, p, embargo, horizon, max_hold_bars):
+    """Fit on the first 80% of the fold's training window; return trades in the purged last 20%."""
+    val_start = f.train_start + (f.train_end - f.train_start) * 0.8
+    fit_bars = bars[(bars.index >= f.train_start) & (bars.index < val_start - horizon - embargo)]
+    upto_val = bars[(bars.index >= f.train_start) & (bars.index < f.train_end)]
+    m = strategy.fit(fit_bars, p)
+    t = simulate(upto_val, strategy.signals(upto_val, p, m), costs, max_hold_bars)
+    return t[(t["entry_time"] >= val_start) & (t["exit_time"] < f.train_end)]
+
+
 def _trainable_fold_trades(bars, strategy, costs, folds, grid, embargo, max_hold_bars):
     """Fit on the first 80% of the training window, validate on the purged last 20% to choose a
     config, then refit that config on the whole training window before the test."""
     horizon = pd.Series(bars.index).diff().median() * strategy.label_horizon_bars
     out = []
     for f in folds:
-        val_start = f.train_start + (f.train_end - f.train_start) * 0.8
-        fit_bars = bars[(bars.index >= f.train_start) & (bars.index < val_start - horizon - embargo)]
-        upto_val = bars[(bars.index >= f.train_start) & (bars.index < f.train_end)]
         full_train = bars[(bars.index >= f.train_start) & (bars.index < f.train_end - horizon)]
         upto_test = bars[(bars.index >= f.train_start) & (bars.index < f.test_end)]
         val_trades, test_trades = [], []
         for p in grid:
-            m = strategy.fit(fit_bars, p)
-            t = simulate(upto_val, strategy.signals(upto_val, p, m), costs, max_hold_bars)
-            val_trades.append(t[(t["entry_time"] >= val_start) & (t["exit_time"] < f.train_end)])
+            val_trades.append(_val_trades(bars, strategy, costs, f, p, embargo, horizon, max_hold_bars))
             m = strategy.fit(full_train, p)
             t = simulate(upto_test, strategy.signals(upto_test, p, m), costs, max_hold_bars)
             test_trades.append(_between(t, f.test_start, f.test_end))
         out.append((val_trades, test_trades))
     return out
+
+
+def fit_for_live(bars, strategy, costs, anchored: bool = True, train_years: float = 2.0,
+                 embargo_bars: int = 24, max_hold_bars: int = 240, min_val_trades: int = 10):
+    """Choose a config and fit its model exactly as a walk-forward fold whose test window
+    starts right after the last bar would. Returns (params, model); (None, None) means no
+    config qualified, so the live strategy should take no trades until the next refit."""
+    bar_delta = pd.Series(bars.index).diff().median()
+    embargo = bar_delta * embargo_bars
+    horizon = bar_delta * strategy.label_horizon_bars
+    test_start = bars.index[-1] + bar_delta
+    train_start = bars.index[0] if anchored else test_start - pd.DateOffset(months=int(round(train_years * 12)))
+    f = Fold(train_start, test_start - embargo, test_start, test_start)
+    grid = strategy.param_grid()
+    scores = [_score(_val_trades(bars, strategy, costs, f, p, embargo, horizon, max_hold_bars), min_val_trades)
+              for p in grid]
+    best = int(np.argmax(scores))
+    if not np.isfinite(scores[best]):
+        return None, None
+    full_train = bars[(bars.index >= f.train_start) & (bars.index < f.train_end - horizon)]
+    return grid[best], strategy.fit(full_train, grid[best])
 
 
 def check_no_lookahead(bars: pd.DataFrame, strategy, params: dict, n_checks: int = 5, model=None) -> bool:

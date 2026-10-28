@@ -15,3 +15,9 @@ models/ml/*.pkl
 
 # Harness run logs (the JSON/CSV reports themselves are tracked)
 reports/harness/logs/
+
+# Live paper trading: logs, machine-local state and fitted models (the ledgers are tracked)
+reports/live/logs/
+reports/live/state_*.json
+reports/live/*_dry.jsonl
+models/live/
