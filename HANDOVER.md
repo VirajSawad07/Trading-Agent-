@@ -209,6 +209,12 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 
 - **Dashboard** (`src/live/dashboard.py` + `dashboard.html`, read-only): `python -m src.live.dashboard`, then open http://127.0.0.1:8050. It shows running status (from the state-file heartbeat), ledger integrity, the demo check, bot equity, the open position, hourly candles with the breakout channel, cumulative R vs the backtest pace, and the activity feed. It cannot trade. The old `src/web/` dashboard belongs to the old multi-agent bot.
 
+- **Sizing changed (2026-10-28):** the user plans a $100k funded (prop-firm) account, so the paper trader now runs with `--sizing-equity 100000 --risk-pct 0.005`. That's 0.5% (about $500) per trade, roughly 0.2 lots at a $23.5 stop, sized per trade by stop distance rather than a fixed lot.
+  - **Basis:** from the backtest trades (258 trades, 45% win, max drawdown 10.9 R, worst losing streak 8), a bootstrap on hitting -10% vs +10% first:
+    - 0.5% risk: 2% / 42%. 1% risk: 17% / 72%.
+    - With **no edge**: 0.5% risk gives 18% / 10%; 1% risk gives 51% / 34%.
+  - 1% risk would have hit about -10.9% at the backtest's worst drawdown, enough to fail a typical 10% prop limit.
+
 ### Not yet done
 - Run step 7: 4 to 8 weeks of demo paper trading, then compare forward R with the backtest (+0.105 R per trade, about 17 trades a year).
 - Not yet tested on demo: a real order fill, the SL/TP re-anchor, and closed-trade reconciliation. The first real signal will exercise them, so check the ledger after it.

@@ -138,7 +138,7 @@ class State:
 
 class PaperTrader:
     def __init__(self, symbol="XAUUSD", timeframe="H1", data_tag="_2009", sizing_equity=3000.0,
-                 dry_run=False, magic=777101, fill_window_min=15, out_dir="reports/live"):
+                 dry_run=False, magic=777101, fill_window_min=15, out_dir="reports/live", risk_pct=None):
         self.symbol, self.tf, self.data_tag = symbol, timeframe, data_tag
         self.bar = BAR[timeframe]
         self.dry_run, self.fill_window = dry_run, timedelta(minutes=fill_window_min)
@@ -146,6 +146,8 @@ class PaperTrader:
         self.strategy = MetaLabelBreakout(self.costs, regime_features=True)
         self.gateway = DemoGateway(magic_number=magic)
         self.risk = RiskEngine()
+        if risk_pct:  # override the config's per-trade risk (the 2% min-lot cap and breakers stay)
+            self.risk.max_risk_per_trade_pct = risk_pct
         out = Path(out_dir)
         (out / "logs").mkdir(parents=True, exist_ok=True)
         stem = f"{symbol}_{timeframe}"
@@ -389,7 +391,7 @@ class PaperTrader:
         acc = self.gateway.verify_demo_account()  # raises on a non-demo account
         self.ledger.append("session_start", f"Paper trader started on demo #{acc['login']} "
                                             f"({'dry run, no orders' if self.dry_run else 'placing demo orders'}).",
-                           login=acc["login"], server=acc["server"], sizing_equity=self.state.sizing_equity,
+                           login=acc["login"], server=acc["server"], sizing_equity=self.state.sizing_equity, risk_pct=self.risk.max_risk_per_trade_pct,
                            magic=self.gateway.magic_number)
         self.load_history()
         self.ensure_model()
@@ -429,13 +431,15 @@ def main():
     p.add_argument("--once", action="store_true", help="process the latest bar and exit")
     p.add_argument("--poll", type=int, default=10)
     p.add_argument("--magic", type=int, default=777101)
+    p.add_argument("--risk-pct", type=float, default=None, help="risk per trade as a fraction, e.g. 0.005 = 0.5%% (default: config)")
     args = p.parse_args()
 
     Path("reports/live/logs").mkdir(parents=True, exist_ok=True)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                         handlers=[logging.StreamHandler(),
                                   logging.FileHandler(f"reports/live/logs/paper_{args.symbol}_{args.timeframe}.log")])
-    PaperTrader(args.symbol, args.timeframe, args.data_tag, args.sizing_equity, args.dry_run, args.magic).run(args.once, args.poll)
+    PaperTrader(args.symbol, args.timeframe, args.data_tag, args.sizing_equity, args.dry_run, args.magic,
+                risk_pct=args.risk_pct).run(args.once, args.poll)
 
 
 if __name__ == "__main__":
