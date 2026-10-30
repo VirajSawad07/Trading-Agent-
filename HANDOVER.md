@@ -224,6 +224,11 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 - **Costs:** `config/symbols.yaml`, with spreads at roughly the 75th percentile of history.
 - **Rule:** a market counts only if it passes every harness check. Six tries means one could pass by luck, so any single pass also needs a forward demo before it's trusted.
 
+- **Progress (2026-10-30): 1 of 6 markets finished.**
+  - **XAGUSD fails:** 142 trades, -0.008 R per trade, t -0.08, DSR 0.04, PBO 0.08; it loses at 2x costs (-21 R).
+  - **Interrupted:** the batch died during GBPUSD on 2026-10-29 at about 05:20, and the PC next booted on 2026-10-30 at 19:01. The other 5 markets have no results yet. Re-run them under the same budget, without changing anything.
+  - **Paper trader:** it stopped at the same time, so there's a forward-data gap from 2026-10-29 05:20 until restart. A closed tab, reboot or sleep stops it; nothing restarts it automatically yet.
+
 ### Not yet done
 - Run step 7: 4 to 8 weeks of demo paper trading, then compare forward R with the backtest (+0.105 R per trade, about 17 trades a year).
 - Not yet tested on demo: a real order fill, the SL/TP re-anchor, and closed-trade reconciliation. The first real signal will exercise them, so check the ledger after it.
