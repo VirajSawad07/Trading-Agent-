@@ -232,7 +232,7 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 ### Not yet done
 - Run step 7: 4 to 8 weeks of demo paper trading, then compare forward R with the backtest (+0.105 R per trade, about 17 trades a year).
 - Not yet tested on demo: a real order fill, the SL/TP re-anchor, and closed-trade reconciliation. The first real signal will exercise them, so check the ledger after it.
-- `src/download_data.py` still silently generates synthetic data; fix or delete it. Session flags in `indicators.py`/`alpha_features.py` assume UTC but bars are server time (UTC+2/+3).
+- Session flags in `indicators.py`/`alpha_features.py` assume UTC but bars are server time (UTC+2/+3).
 - Decide how to handle gold sizing at $600 (fund more, find a broker with 0.001 lots, or trade EURUSD live first).
 - Read `src/features/alpha_features.py` and `src/features/indicators.py` and audit them for leakage.
 - Read the agents, risk engine, backtest code and data connector (`src/agents/`, `src/risk/risk_engine.py`, `src/data/mt5_connector.py`, `src/orchestration/coordinator.py`).

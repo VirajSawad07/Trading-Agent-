@@ -42,10 +42,14 @@ def main():
             finally:
                 connector.disconnect()
 
+    if df is None and not args.force_sample:
+        # Never fall back silently: fake prices once produced a meaningless Sharpe of 11.
+        raise SystemExit("[Data] Could not get bars from MT5, so nothing was written. "
+                         "Open MT5 and retry, or pass --force-sample for clearly labelled fake data.")
     if df is None:
-        print(f"[Data] MT5 terminal not connected. Generating high-fidelity {args.symbol} {args.timeframe} dataset ({args.bars} bars)...")
+        print(f"[Data] Generating SYNTHETIC {args.symbol} {args.timeframe} dataset ({args.bars} bars). Not real prices.")
         df = MT5Connector.generate_sample_gold_data(bars_count=args.bars, freq="15min")
-        print(f"[Data] Generated {len(df)} synthetic bars (Price range: ${df['low'].min():.2f} - ${df['high'].max():.2f}).")
+        out_path = os.path.join(raw_dir, f"{args.symbol}_{args.timeframe}_SYNTHETIC.csv")
 
     df.to_csv(out_path)
     print(f"[Data] Saved dataset to {out_path}")
