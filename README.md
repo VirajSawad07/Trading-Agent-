@@ -2,6 +2,8 @@
 
 > An institutional-grade, autonomous algorithmic trading platform for **MetaTrader 5 (MT5)** combining **Machine Learning (LightGBM)**, **Frontier LLM Macro Analysis (GPT-5.6)**, **Multi-Regime Technical Models**, and **Deterministic Mathematical Risk Controls**.
 
+> **Current status:** research and demo paper trading only. No strategy has passed the test harness, and older performance figures in this README came from an unreliable backtest. See [HANDOVER.md](HANDOVER.md) for results and [docs/PAPER_TRADING.md](docs/PAPER_TRADING.md) to run the bot.
+
 ---
 
 ## 📑 Table of Contents
