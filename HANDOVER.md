@@ -224,10 +224,23 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 - **Costs:** `config/symbols.yaml`, with spreads at roughly the 75th percentile of history.
 - **Rule:** a market counts only if it passes every harness check. Six tries means one could pass by luck, so any single pass also needs a forward demo before it's trusted.
 
-- **Progress (2026-10-30): 1 of 6 markets finished.**
-  - **XAGUSD fails:** 142 trades, -0.008 R per trade, t -0.08, DSR 0.04, PBO 0.08; it loses at 2x costs (-21 R).
-  - **Interrupted:** the batch died during GBPUSD on 2026-10-29 at about 05:20, and the PC next booted on 2026-10-30 at 19:01. The other 5 markets have no results yet. Re-run them under the same budget, without changing anything.
-  - **Paper trader:** it stopped at the same time, so there's a forward-data gap from 2026-10-29 05:20 until restart. A closed tab, reboot or sleep stops it; nothing restarts it automatically yet.
+- **Result (2026-10-31): 0 of 6 markets pass.** The budget is spent, so these markets are not to be re-tuned or re-run with changes.
+
+  | Market | Trades (per yr) | Avg R | Total R | t | DSR | PBO | 2x costs R | $100k at 0.5% |
+  |---|---|---|---|---|---|---|---|---|
+  | XAGUSD | 142 (9) | -0.008 | -1.1 | -0.08 | 0.04 | 0.08 | -21.2 | -0.9% |
+  | GBPUSD | 197 (14) | +0.030 | +5.9 | 0.34 | 0.21 | 0.50 | -3.3 | +2.6% |
+  | AUDUSD | 141 (10) | -0.042 | -5.9 | -0.41 | 0.06 | 0.44 | -19.0 | -3.1% |
+  | US500 | 235 (27) | +0.101 | +23.7 | 1.22 | 0.62 | 0.91 | -4.5 | +12.0% |
+  | US30 | 203 (23) | -0.005 | -1.0 | -0.05 | 0.18 | 0.53 | -13.6 | -1.5%, halted at 10% DD on 2025-05-08 |
+  | USTEC | 70 (30) | +0.129 | +9.0 | 0.83 | 0.47 | 0.57 | +9.2 | +4.4% |
+
+  - **Combined:** 988 trades, +30.6 R, +0.031 R per trade.
+  - **US500** is the best-looking, but PBO 0.91 says its config choice is mostly overfit, and it loses at 2x costs.
+  - **USTEC** has only 70 trades over about 2 years, below the 100-trade minimum, so it says little either way.
+  - **US30** failed the harness sanity check too: shuffled data made money in 6 of 10 runs, so that run can't be read as evidence.
+  - **Interruptions:** the batch died twice (2026-10-29 05:21 and 2026-10-31 13:24, both Start-menu shutdown/restart per the Windows event log). The remaining markets were re-run unchanged. AUDUSD ran over 12 hours without finishing before the second restart, then finished in 53 minutes; the cause is unknown.
+  - **Paper trader:** gold stays the only market traded. It stopped with each interruption, so forward data has gaps. A closed tab, reboot or sleep stops it; nothing restarts it automatically yet. The ledger logged 9 "Lost connection to MT5" errors from 2026-10-30 to 10-31 (market closed for most of them); it reconnected each time and the cause is unknown.
 
 ### Not yet done
 - Run step 7: 4 to 8 weeks of demo paper trading, then compare forward R with the backtest (+0.105 R per trade, about 17 trades a year).

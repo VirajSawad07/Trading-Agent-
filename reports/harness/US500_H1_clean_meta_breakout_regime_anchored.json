@@ -1,0 +1,143 @@
+{
+  "strategy": "meta_breakout_regime",
+  "configs_tried": 9,
+  "folds": 36,
+  "oos_start": "2018-01-04 00:00:00",
+  "oos_end": "2026-10-28 19:00:00",
+  "chosen_params": [
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.6}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.6}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.6}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.55}",
+    "{'lookback': 20, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.55}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 100, 'threshold': 0.5}",
+    "{'lookback': 100, 'threshold': 0.5}",
+    "{'lookback': 100, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.6}",
+    "{'lookback': 50, 'threshold': 0.55}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.55}",
+    "{'lookback': 50, 'threshold': 0.55}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 50, 'threshold': 0.5}",
+    "{'lookback': 100, 'threshold': 0.5}",
+    "{'lookback': 100, 'threshold': 0.5}"
+  ],
+  "oos": {
+    "trades": 235,
+    "trades_per_year": 26.664725069897486,
+    "win_rate_pct": 45.1063829787234,
+    "avg_r": 0.1008128283239225,
+    "total_r": 23.691014656121787,
+    "profit_factor": 1.1785384837392028,
+    "t_stat": 1.2217572904304486,
+    "avg_cost_r": 0.06068758473406064,
+    "avg_bars_held": 17.82127659574468
+  },
+  "buy_and_hold_pct": 185.55243929441284,
+  "oos_sharpe_annual": 0.4156029258334028,
+  "deflated_sharpe": {
+    "sharpe_per_period": 0.02605710531289054,
+    "sharpe_threshold": 0.019891749165621832,
+    "dsr": 0.6170870628429312,
+    "n_trials": 9
+  },
+  "deflated_sharpe_all_trials": {
+    "sharpe_per_period": 0.02605710531289054,
+    "sharpe_threshold": 0.019891749165621832,
+    "dsr": 0.6170870628429312,
+    "n_trials": 9
+  },
+  "pbo": {
+    "pbo": 0.9066822066822067,
+    "combinations": 12870,
+    "prob_oos_loss": 0.4092463092463092
+  },
+  "oos_2x_costs": {
+    "trades": 229,
+    "trades_per_year": 25.983923578751167,
+    "win_rate_pct": 40.61135371179039,
+    "avg_r": -0.019806913427636862,
+    "total_r": -4.5357831749288415,
+    "profit_factor": 0.9680596473764747,
+    "t_stat": -0.23857349548649537,
+    "avg_cost_r": 0.12215224158582208,
+    "avg_bars_held": 17.58515283842795
+  },
+  "random_walk": {
+    "runs": 10,
+    "mean_trades": 144.3,
+    "mean_total_r": -9.303710791498954,
+    "mean_avg_r": -0.07013254858997406,
+    "profitable_runs": 1,
+    "total_r_p95": 15.198555165942462,
+    "total_r_all": [
+      28.29,
+      -26.21,
+      -1.34,
+      -23.15,
+      -2.94,
+      -0.8,
+      -28.7,
+      -1.98,
+      -13.24,
+      -22.96
+    ]
+  },
+  "accounts": {
+    "100000.0": {
+      "capped_risk": {
+        "start_equity": 100000.0,
+        "final_equity": 112004.0769045724,
+        "return_pct": 12.004076904572392,
+        "trades_taken": 235,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.49907473962497806,
+        "max_risk_pct": 0.4999986175343338,
+        "max_drawdown_pct": 5.09946064850153,
+        "halted_at": null
+      },
+      "forced_min_lot": {
+        "start_equity": 100000.0,
+        "final_equity": 112004.0769045724,
+        "return_pct": 12.004076904572392,
+        "trades_taken": 235,
+        "trades_skipped_min_lot": 0,
+        "median_risk_pct": 0.49907473962497806,
+        "max_risk_pct": 0.4999986175343338,
+        "max_drawdown_pct": 5.09946064850153,
+        "halted_at": null
+      }
+    }
+  },
+  "checks": {
+    "no_lookahead": true,
+    "enough_oos_trades (>=100)": true,
+    "profitable_after_costs (avg R > 0, t > 2)": false,
+    "survives_2x_costs": false,
+    "deflated_sharpe >= 0.95 (all trials)": false,
+    "pbo < 0.5": false,
+    "harness_sane (shuffled data loses)": true,
+    "beats 95% of shuffled runs": true
+  },
+  "verdict": "FAIL"
+}
