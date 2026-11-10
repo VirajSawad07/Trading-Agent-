@@ -17,12 +17,27 @@ Demo account only. The gateway refuses any other account type.
    .venv/Scripts/python -m src.live.dashboard
    ```
 
+## Autostart at login
+
+The scheduled task `TradingBot-PaperTrader` runs `scripts/start_bot.ps1` hidden when you
+log in. It opens MT5, starts the dashboard, and starts the trader at $100k / 0.5% risk,
+restarting it within a minute if it exits. It never restarts after the trader refuses a
+non-demo account. Its log is `reports/live/logs/autostart.log`.
+
+```powershell
+Stop-ScheduledTask -TaskName TradingBot-PaperTrader        # stop it now
+Disable-ScheduledTask -TaskName TradingBot-PaperTrader     # no autostart
+Unregister-ScheduledTask -TaskName TradingBot-PaperTrader  # remove it
+```
+
+Stopping the task may leave the Python processes running; end them in Task Manager.
+
 ## What stops it
 
-The bot does not restart itself. A reboot, sleep, closed window or closed MT5 stops it.
-Open trades keep their stop and target at the broker, but time exits and reversals wait
-until the bot is back. Run the start command again to resume; it will not resend an
-order it already placed. Hours missed while it was off are not decided afterwards.
+A shutdown or sleep still stops the bot; it resumes at your next login. Open trades keep
+their stop and target at the broker, but time exits and reversals wait until the bot is
+back. It will not resend an order it already placed. Hours missed while it was off are
+not decided afterwards.
 
 ## Check on it
 

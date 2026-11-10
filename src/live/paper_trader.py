@@ -22,6 +22,7 @@ import argparse
 import json
 import logging
 import pickle
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -46,6 +47,7 @@ except ImportError:  # tests import the pure helpers without MT5
 TIMEFRAMES = {"H1": 16385, "H4": 16388}
 BAR = {"H1": pd.Timedelta(hours=1), "H4": pd.Timedelta(hours=4)}
 MAX_HOLD_BARS = 240
+LIVE_ACCOUNT_EXIT = 3  # exit code when the terminal is on a non-demo account
 REFIT_EVERY = pd.DateOffset(months=3)
 SIGNAL_TAIL = 8000  # bars used to compute live features (EMA200 etc. fully warmed up)
 
@@ -446,8 +448,12 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                         handlers=[logging.StreamHandler(),
                                   logging.FileHandler(f"reports/live/logs/paper_{args.symbol}_{args.timeframe}.log")])
-    PaperTrader(args.symbol, args.timeframe, args.data_tag, args.sizing_equity, args.dry_run, args.magic,
-                risk_pct=args.risk_pct).run(args.once, args.poll)
+    try:
+        PaperTrader(args.symbol, args.timeframe, args.data_tag, args.sizing_equity, args.dry_run, args.magic,
+                    risk_pct=args.risk_pct).run(args.once, args.poll)
+    except LiveAccountError as e:
+        log.error("%s", e)
+        sys.exit(LIVE_ACCOUNT_EXIT)  # scripts/start_bot.ps1 never restarts after this code
 
 
 if __name__ == "__main__":
