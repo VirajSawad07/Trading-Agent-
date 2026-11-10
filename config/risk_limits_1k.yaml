@@ -1,0 +1,20 @@
+# Risk profile for a $1,000 account trading gold at the minimum lot (0.01).
+# One gold trade at 0.01 lots with the bot's 2x ATR stop risks about $30-45 (3-4.5%),
+# so every trade is the minimum lot and risks far more than the 1% target.
+# The user accepted this on 2026-11-10, knowing the backtest's worst drawdown (10.9 R)
+# would be roughly a 35-45% loss at this size.
+
+risk_limits:
+  max_risk_per_trade_pct: 0.01   # Target; at $1k the min lot is always above it
+  max_daily_loss_pct: 0.06       # Above one full stop (~4.5%), so a single loss doesn't trip it
+  max_total_drawdown_pct: 0.40   # Halt for good after a 40% loss from peak ($1,000 -> $600)
+  max_open_positions: 2
+  max_spread_points: 50
+
+  min_lot_size: 0.01
+  max_lot_size: 2.0
+  lot_step: 0.01
+  max_min_lot_risk_pct: 0.05    # Take the min lot if it risks <= 5%; skip wilder-than-usual stops
+
+  demo_account_only: true        # Still demo only
+  enforce_stop_loss: true

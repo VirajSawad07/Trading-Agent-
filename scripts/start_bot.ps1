@@ -33,7 +33,7 @@ if (-not (Get-NetTCPConnection -LocalPort 8050 -State Listen -ErrorAction Silent
 while ($true) {
     Say "Starting paper trader."
     # The trader writes its own log (paper_XAUUSD_H1.log); stderr is kept for startup crashes.
-    $p = Start-Process $py -ArgumentList "-m", "src.live.paper_trader", "--sizing-equity", "100000", "--risk-pct", "0.005" `
+    $p = Start-Process $py -ArgumentList "-m", "src.live.paper_trader", "--sizing-equity", "1000", "--risk-config", "config/risk_limits_1k.yaml" `
         -WorkingDirectory $root -NoNewWindow -Wait -PassThru `
         -RedirectStandardError (Join-Path $logDir "autostart_trader.err")
     $code = $p.ExitCode

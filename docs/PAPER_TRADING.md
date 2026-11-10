@@ -20,7 +20,7 @@ Demo account only. The gateway refuses any other account type.
 ## Autostart at login
 
 The scheduled task `TradingBot-PaperTrader` runs `scripts/start_bot.ps1` hidden when you
-log in. It opens MT5, starts the dashboard, and starts the trader at $100k / 0.5% risk,
+log in. It opens MT5, starts the dashboard, and starts the trader sized as a $1,000 account (gold at the 0.01 minimum lot, `config/risk_limits_1k.yaml`),
 restarting it within a minute if it exits. It never restarts after the trader refuses a
 non-demo account. Its log is `reports/live/logs/autostart.log`.
 

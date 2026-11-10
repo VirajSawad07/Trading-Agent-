@@ -209,6 +209,11 @@ Written 2026-10-28. Read this first in the next session. No code has been change
 
 - **Dashboard** (`src/live/dashboard.py` + `dashboard.html`, read-only): `python -m src.live.dashboard`, then open http://127.0.0.1:8050. It shows running status (from the state-file heartbeat), ledger integrity, the demo check, bot equity, the open position, hourly candles with the breakout channel, cumulative R vs the backtest pace, and the activity feed. It cannot trade. The old `src/web/` dashboard belongs to the old multi-agent bot.
 
+- **Sizing changed again (2026-11-10): $1,000 real, no funded account.** Gold at 0.01 lots with the 2x ATR stop risks about $32 (90th percentile $42), so 3-4.5% of $1,000 per trade. The user accepted that, knowing the backtest's worst drawdown would be roughly a 35-45% loss at this size.
+  - The paper trader now runs `--sizing-equity 1000 --risk-config config/risk_limits_1k.yaml`. That profile takes the min lot if it risks up to 5% (skips above), has a 6% daily breaker, and halts for good at a 40% drawdown from peak. It is still demo only.
+  - The trader is started at login by the `TradingBot-PaperTrader` scheduled task (`scripts/start_bot.ps1`, see `docs/PAPER_TRADING.md`). The $100k state was saved as `state_XAUUSD_H1.json.100k-2026-11-10.bak`; it had no trades.
+  - The bot was off from 2026-11-01 02:34 to 2026-11-10 11:35 (PC shut down from the Start menu), so the forward test lost that week.
+  - Expected money at this size, if the backtest edge holds: about +$3 per trade, about $50 a year.
 - **Sizing changed (2026-10-28):** the user plans a $100k funded (prop-firm) account, so the paper trader now runs with `--sizing-equity 100000 --risk-pct 0.005`. That's 0.5% (about $500) per trade, roughly 0.2 lots at a $23.5 stop, sized per trade by stop distance rather than a fixed lot.
   - **Basis:** from the backtest trades (258 trades, 45% win, max drawdown 10.9 R, worst losing streak 8), a bootstrap on hitting -10% vs +10% first:
     - 0.5% risk: 2% / 42%. 1% risk: 17% / 72%.

@@ -227,3 +227,14 @@ def test_only_a_live_account_is_fatal():
     from src.execution.demo_gateway import LiveAccountError
     assert issubclass(LiveAccountError, PermissionError)  # old callers still catch it
     assert not isinstance(PermissionError(5, "Access is denied"), LiveAccountError)
+
+
+def test_1k_profile_takes_min_lot_up_to_5pct():
+    eng = RiskEngine("config/risk_limits_1k.yaml")
+    assert eng.demo_account_only
+    assert eng.calculate_lot_size(1000, 4000.0, 3968.0, 100.0) == 0.01   # $32 stop = 3.2%
+    assert eng.calculate_lot_size(1000, 4000.0, 3940.0, 100.0) == 0.0    # $60 stop = 6%: skipped
+    acct = AccountState(balance=590, equity=590, open_positions=0, daily_starting_equity=590, peak_equity=1000)
+    ok, why, _ = eng.validate_proposal(OrderProposal("XAUUSD", "BUY", 4000, 3968, 4048), acct,
+                                       MarketConditions(30, 3999.7, 4000), 100.0)
+    assert not ok and "Total drawdown" in why
