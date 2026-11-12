@@ -238,3 +238,11 @@ def test_1k_profile_takes_min_lot_up_to_5pct():
     ok, why, _ = eng.validate_proposal(OrderProposal("XAUUSD", "BUY", 4000, 3968, 4048), acct,
                                        MarketConditions(30, 3999.7, 4000), 100.0)
     assert not ok and "Total drawdown" in why
+
+
+def test_watchdog_restarts_mt5_only_after_a_long_outage():
+    from src.live.paper_trader import should_restart_terminal
+    assert not should_restart_terminal(5 * 60, None)         # short blip: just reconnect
+    assert should_restart_terminal(11 * 60, None)            # frozen 11 min: restart
+    assert not should_restart_terminal(60 * 60, 10 * 60)     # restarted 10 min ago: wait
+    assert should_restart_terminal(60 * 60, 31 * 60)         # still down 30+ min after: try again

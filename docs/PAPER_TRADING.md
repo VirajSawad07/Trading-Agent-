@@ -32,6 +32,14 @@ Unregister-ScheduledTask -TaskName TradingBot-PaperTrader  # remove it
 
 Stopping the task may leave the Python processes running; end them in Task Manager.
 
+## MT5 watchdog
+
+MT5 sometimes stops answering the bot ("IPC timeout") for hours while still open. If MT5
+has been unreachable for 10 minutes, the bot closes and reopens it, at most once every
+30 minutes. Open trades are unaffected: their stop and target are held by the broker.
+The ledger records each outage once (`error`), each restart (`watchdog`) and the recovery
+(`reconnected`).
+
 ## What stops it
 
 A shutdown or sleep still stops the bot; it resumes at your next login. Open trades keep

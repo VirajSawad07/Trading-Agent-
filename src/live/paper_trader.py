@@ -22,6 +22,7 @@ import argparse
 import json
 import logging
 import pickle
+import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -50,6 +51,9 @@ MAX_HOLD_BARS = 240
 LIVE_ACCOUNT_EXIT = 3  # exit code when the terminal is on a non-demo account
 REFIT_EVERY = pd.DateOffset(months=3)
 SIGNAL_TAIL = 8000  # bars used to compute live features (EMA200 etc. fully warmed up)
+TERMINAL_EXE = r"C:\Program Files\MetaTrader 5\terminal64.exe"
+WATCHDOG_AFTER_S = 10 * 60   # restart MT5 after it has been unreachable this long
+WATCHDOG_EVERY_S = 30 * 60   # and at most this often, so a broker-side outage can't cause a restart loop
 
 log = logging.getLogger("paper")
 
@@ -70,6 +74,11 @@ def plan_actions(pos_dir: int, bars_held: int, signal: int, max_hold: int = MAX_
     if flat and signal != 0:
         actions.append(("open", signal))
     return actions
+
+
+def should_restart_terminal(down_s: float, since_restart_s: Optional[float]) -> bool:
+    """Watchdog rule: MT5 unreachable for 10+ min, and no restart in the last 30 min."""
+    return down_s >= WATCHDOG_AFTER_S and (since_restart_s is None or since_restart_s >= WATCHDOG_EVERY_S)
 
 
 def explain(info: dict, actions: list, pos_dir: int) -> str:
@@ -173,6 +182,8 @@ class PaperTrader:
         self.model = None
         self.history = None
         self._last_tick_msc, self._tick_changed_at = None, time.monotonic()
+        self._down_since, self._last_restart = None, None
+        self.terminal_exe = TERMINAL_EXE
 
     # ---------------------------------------------------------------- connection
 
@@ -180,12 +191,26 @@ class PaperTrader:
         for i in range(attempts):
             if mt5.initialize(timeout=10000) and mt5.terminal_info() is not None and mt5.terminal_info().connected:
                 mt5.symbol_select(self.symbol, True)
+                self.terminal_exe = str(Path(mt5.terminal_info().path) / "terminal64.exe")
                 return True
             wait = min(60, 5 * 2 ** i)
             log.warning("MT5 not connected (%s); retrying in %ss", mt5.last_error(), wait)
             mt5.shutdown()
             time.sleep(wait)
         return False
+
+    def restart_terminal(self, down_s: float):
+        """Close and reopen a frozen MT5 (e.g. 'IPC timeout' for hours). Open trades are safe:
+        their stop and target live at the broker, not in the terminal."""
+        self._last_restart = time.monotonic()
+        self.ledger.append("watchdog", f"MT5 unreachable for {down_s / 60:.0f} min; restarting the terminal.",
+                           terminal=self.terminal_exe)
+        mt5.shutdown()
+        subprocess.run(["taskkill", "/IM", "terminal64.exe"], capture_output=True)
+        time.sleep(15)
+        subprocess.run(["taskkill", "/F", "/IM", "terminal64.exe"], capture_output=True)
+        subprocess.Popen([self.terminal_exe])
+        time.sleep(60)  # let it log in before the next connect attempt
 
     def connected(self) -> bool:
         info = mt5.terminal_info()
@@ -411,9 +436,18 @@ class PaperTrader:
             while True:
                 try:
                     if not self.connected():
-                        self.ledger.append("error", "Lost connection to MT5; reconnecting.")
+                        now = time.monotonic()
+                        if self._down_since is None:  # one ledger line per outage, not one per retry
+                            self._down_since = now
+                            self.ledger.append("error", "Lost connection to MT5; reconnecting.")
                         if not self.connect():
+                            since = None if self._last_restart is None else now - self._last_restart
+                            if should_restart_terminal(now - self._down_since, since):
+                                self.restart_terminal(now - self._down_since)
                             continue
+                    if self._down_since is not None:
+                        self.ledger.append("reconnected", f"MT5 back after {(time.monotonic() - self._down_since) / 60:.0f} min.")
+                        self._down_since = None
                     self.gateway.verify_demo_account()
                     self.step()
                 except LiveAccountError:  # only a non-demo account stops the bot; file errors etc. are logged
