@@ -111,3 +111,32 @@ The hold-out was **not** run, because neither trial passed on development data.
   This was found and fixed after the first run; both trials still fail without it.
 
 Trials used so far in this plan: 2 of 5.
+
+### Track 2, trend following: FAIL (2026-11-15)
+
+Development period 1995-12 to 2025-04, daily bars, 23 markets: 10 FX pairs, 5 metals (gold,
+silver, platinum, palladium, copper) and 8 stock indexes. Each market joins once it has a
+year of history; indexes only from 2012 to 2019, so the 1990s-2000s are mostly FX.
+UK100 was left out before the run: its broker history has a 3-year hole.
+Costs: `config/research_costs.yaml`, fixed before the run. They are on the pessimistic side:
+they were written on a Sunday, when live spreads are wide, and today's swap rates are
+applied to all history. Code: `src/research/trend_following.py`. The hold-out was **not** run.
+
+| Trial | Sharpe (yr) | t | Return/yr | Vol/yr | Max drawdown | 2x costs | Shuffled data | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| A 12-month trend | 0.16 | 0.90 | +1.3% | 19.5% | 70% | -2.5%/yr | beat 95% (p95 Sharpe 0.00) | FAIL |
+| B 1/3/12-month blend | 0.06 | 0.30 | -0.4% | 15.6% | 74% | -3.2%/yr | did not beat 95% | FAIL |
+
+- **Before costs** A made +4.5% a year (Sharpe 0.32, t 1.78) and B +2.1% (Sharpe 0.21).
+  Costs per year: A 0.4% trading and 2.6% financing; B 0.6% and 1.7%. **Financing (swap)
+  is the biggest cost**, and with no financing at all A still only reaches t 1.66.
+- **A's trend effect looks real but weak.** It beats the shuffled-data runs, but at a
+  Sharpe far below the published 0.7-1.0 (futures, 1985-2009), consistent with the widely
+  reported weakening of trend following since 2009 and with a universe that is mostly FX.
+- **Realised volatility was about twice the 10% target**, because the FX pairs move
+  together; per-market sizing ignored correlation, as the plan specified.
+- **By market (A, total over the period):** best GBPJPY +39%, USDJPY +36%, NZDUSD +28%;
+  worst platinum -13%.
+- **Deflated Sharpe** is 0.00 for both, counted against the plan's 5 trials.
+
+Trials used so far in this plan: 4 of 5.

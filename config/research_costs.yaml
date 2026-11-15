@@ -1,0 +1,190 @@
+# Track 2 cost assumptions (docs/RESEARCH_PLAN.md), written 2026-11-15 before any Track 2 result.
+# spread = max(75th pct of the last 2 years' D1 spread column, live spread, config/symbols.yaml);
+# slippage = 25% of spread (min 1 point), paid on every change of position.
+# Financing: FX and metals use today's broker swap (points per lot per night, per calendar night);
+# copper uses its broker interest rate; stock indexes pay a flat 2%/yr on longs and shorts
+# (broker swaps imply about 1-1.5%/yr). Today's swaps are applied to all history: an approximation.
+EURUSD:
+  point: 1.0e-05
+  spread_points: 8.0
+  slippage_points: 2.0
+  financing:
+    type: points_per_night
+    long: -0.7
+    short: -1.0
+GBPUSD:
+  point: 1.0e-05
+  spread_points: 11.0
+  slippage_points: 2.8
+  financing:
+    type: points_per_night
+    long: -0.2
+    short: -2.2
+USDJPY:
+  point: 0.001
+  spread_points: 2.0
+  slippage_points: 1.0
+  financing:
+    type: points_per_night
+    long: -0.1
+    short: -0.6
+AUDUSD:
+  point: 1.0e-05
+  spread_points: 10.0
+  slippage_points: 2.5
+  financing:
+    type: points_per_night
+    long: 6.3
+    short: -14.8
+USDCAD:
+  point: 1.0e-05
+  spread_points: 2.0
+  slippage_points: 1.0
+  financing:
+    type: points_per_night
+    long: -0.8
+    short: -0.4
+USDCHF:
+  point: 1.0e-05
+  spread_points: 4.0
+  slippage_points: 1.0
+  financing:
+    type: points_per_night
+    long: 0.1
+    short: -1.0
+NZDUSD:
+  point: 1.0e-05
+  spread_points: 4.0
+  slippage_points: 1.0
+  financing:
+    type: points_per_night
+    long: 2.8
+    short: -6.7
+EURJPY:
+  point: 0.001
+  spread_points: 14.0
+  slippage_points: 3.5
+  financing:
+    type: points_per_night
+    long: -0.2
+    short: -1.2
+GBPJPY:
+  point: 0.001
+  spread_points: 14.0
+  slippage_points: 3.5
+  financing:
+    type: points_per_night
+    long: 0.3
+    short: -2.2
+EURGBP:
+  point: 1.0e-05
+  spread_points: 2.0
+  slippage_points: 1.0
+  financing:
+    type: points_per_night
+    long: -1.2
+    short: -0.4
+XAUUSD:
+  point: 0.01
+  spread_points: 35.0
+  slippage_points: 8.8
+  financing:
+    type: points_per_night
+    long: -12.6
+    short: -4.6
+XAGUSD:
+  point: 0.001
+  spread_points: 35.0
+  slippage_points: 8.8
+  financing:
+    type: points_per_night
+    long: -2.3
+    short: 0.2
+XPTUSD:
+  point: 0.001
+  spread_points: 5970.0
+  slippage_points: 1492.5
+  financing:
+    type: points_per_night
+    long: 0.0
+    short: 0.0
+XPDUSD:
+  point: 0.001
+  spread_points: 4550.0
+  slippage_points: 1137.5
+  financing:
+    type: points_per_night
+    long: 0.0
+    short: 0.0
+COPPER:
+  point: 0.01
+  spread_points: 1050.0
+  slippage_points: 262.5
+  financing:
+    type: annual_pct
+    long: -9.83
+    short: -2.66
+US500:
+  point: 0.01
+  spread_points: 60.0
+  slippage_points: 15.0
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0
+US30:
+  point: 0.01
+  spread_points: 200.0
+  slippage_points: 50.0
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0
+USTEC:
+  point: 0.01
+  spread_points: 200.0
+  slippage_points: 50.0
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0
+DE40:
+  point: 0.01
+  spread_points: 80.0
+  slippage_points: 20.0
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0
+JPN225:
+  point: 1.0
+  spread_points: 32.0
+  slippage_points: 8.0
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0
+AUS200:
+  point: 0.1
+  spread_points: 42.0
+  slippage_points: 10.5
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0
+FRA40:
+  point: 0.1
+  spread_points: 84.0
+  slippage_points: 21.0
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0
+EUSTX50:
+  point: 0.1
+  spread_points: 74.0
+  slippage_points: 18.5
+  financing:
+    type: annual_pct
+    long: -2.0
+    short: -2.0

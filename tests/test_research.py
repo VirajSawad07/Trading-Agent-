@@ -52,3 +52,41 @@ def test_shuffle_keeps_each_days_open_and_bars():
     assert np.allclose(sh["open"][:, 0], s["open"][:, 0])
     rel = lambda x: np.sort(x["close"] / x["open"], axis=1)
     assert np.allclose(rel(sh), rel(s))
+
+
+# ---------------------------------------------------------------- Track 2
+
+def _panel(n=900, seed=0):
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2015-01-01", periods=n)
+    ret = pd.DataFrame(rng.normal(0.0004, 0.01, (n, 3)), index=idx, columns=["A", "B", "C"])
+    ret.iloc[0] = np.nan
+    close = (1 + ret.fillna(0)).cumprod() * 100
+    return {"close": close, "ret": ret, "trading": close.notna()}
+
+
+_COSTS = {s: {"point": 0.01, "spread_points": 5.0, "slippage_points": 1.0,
+              "financing": {"type": "annual_pct", "long": -2.0, "short": -2.0}} for s in "ABC"}
+
+
+def test_trend_weights_have_no_lookahead():
+    from src.research.trend_following import target_weights
+    p = _panel()
+    cut = {k: v.iloc[:600] for k, v in p.items()}
+    full = target_weights("tsmom_blend", p).iloc[:600]
+    part = target_weights("tsmom_blend", cut)
+    # The last week of the cut may end early, so compare up to the previous week.
+    upto = part.dropna(how="all").index[-2]
+    pd.testing.assert_frame_equal(full.loc[:upto], part.loc[:upto])
+
+
+def test_trend_position_earns_from_the_next_day_and_pays_costs():
+    from src.research.trend_following import simulate
+    p = _panel()
+    sim = simulate("tsmom_12m", p, _COSTS)
+    w = sim["weights"]
+    expected = (w.shift(1).fillna(0) * p["ret"].fillna(0)).sum(axis=1)
+    pd.testing.assert_series_equal(sim["gross"], expected, check_names=False)
+    assert (sim["trade_cost"] >= 0).all() and sim["trade_cost"].sum() > 0
+    assert sim["financing"].sum() < 0
+    assert w.abs().max().max() <= 2.0
