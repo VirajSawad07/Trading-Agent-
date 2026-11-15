@@ -1,0 +1,194 @@
+{
+  "period": "development",
+  "from": "2018-03-21",
+  "to": "2025-04-30",
+  "days": {
+    "US500": 1705,
+    "US30": 1705,
+    "USTEC": 646
+  },
+  "trials": {
+    "noise_band": {
+      "portfolio": {
+        "trades": 3730,
+        "trades_per_year": 524.5985752791682,
+        "win_rate_pct": 36.30026809651474,
+        "avg_r": 0.03640903443312661,
+        "total_r": 135.80569843556225,
+        "profit_factor": 1.0796091397773278,
+        "t_stat": 1.4026329067376055,
+        "avg_cost_r": 0.06998056653288767,
+        "avg_bars_held": 3.5603217158176945
+      },
+      "by_symbol": {
+        "US30": {
+          "trades": 1621,
+          "trades_per_year": 227.9823835194455,
+          "win_rate_pct": 34.60826650215916,
+          "avg_r": -0.00031454732060175167,
+          "total_r": -0.5098812066954395,
+          "profit_factor": 0.9993037946590791,
+          "t_stat": -0.008566702164142008,
+          "avg_cost_r": 0.046602539888247446,
+          "avg_bars_held": 3.450339296730413
+        },
+        "US500": {
+          "trades": 1541,
+          "trades_per_year": 216.73093954562955,
+          "win_rate_pct": 36.14536015574302,
+          "avg_r": 0.044017421647924014,
+          "total_r": 67.8308467594509,
+          "profit_factor": 1.089930651413963,
+          "t_stat": 0.9884134296258407,
+          "avg_cost_r": 0.10342664277704613,
+          "avg_bars_held": 3.5859831278390657
+        },
+        "USTEC": {
+          "trades": 568,
+          "trades_per_year": 79.88525221409319,
+          "win_rate_pct": 41.54929577464789,
+          "avg_r": 0.12057171282184298,
+          "total_r": 68.48473288280681,
+          "profit_factor": 1.312321016365864,
+          "t_stat": 2.0455816375902276,
+          "avg_cost_r": 0.04595834417146802,
+          "avg_bars_held": 3.8045774647887325
+        }
+      },
+      "daily_sharpe_annual": 0.41380397961308235,
+      "cost_x2": {
+        "total_r": -125.22181473210875,
+        "avg_r": -0.03357153209976106
+      },
+      "shuffled": {
+        "runs": 20,
+        "mean_total_r": -267.30639179117844,
+        "profitable_runs": 0,
+        "total_r_p95": -74.44709906117184,
+        "all": [
+          -206.2,
+          -257.2,
+          -365.6,
+          -316.9,
+          -387.0,
+          -63.6,
+          -372.0,
+          -326.0,
+          -248.7,
+          -287.5,
+          -185.2,
+          -160.2,
+          -315.3,
+          -419.3,
+          -198.8,
+          -499.9,
+          -75.0,
+          -286.6,
+          -209.6,
+          -165.5
+        ]
+      },
+      "dsr_5_trials": 6.613994414582763e-08,
+      "checks": {
+        "enough_trades (>=300)": true,
+        "profitable_after_costs (avg R > 0, t > 2)": false,
+        "survives_2x_costs": false,
+        "deflated_sharpe >= 0.95": false,
+        "beats 95% of shuffled runs": true,
+        "harness_sane (shuffled mean loses)": true
+      },
+      "verdict": "FAIL"
+    },
+    "gao_last_half_hour": {
+      "portfolio": {
+        "trades": 4007,
+        "trades_per_year": 563.5567000385059,
+        "win_rate_pct": 43.64861492388321,
+        "avg_r": -0.21613700312361805,
+        "total_r": -866.0609715163375,
+        "profit_factor": 0.6731791006424147,
+        "t_stat": -8.324599146669593,
+        "avg_cost_r": 0.12792873913309813,
+        "avg_bars_held": 1.0
+      },
+      "by_symbol": {
+        "US30": {
+          "trades": 1689,
+          "trades_per_year": 237.54611089718907,
+          "win_rate_pct": 44.58259325044405,
+          "avg_r": -0.2060714145407022,
+          "total_r": -348.05461915924604,
+          "profit_factor": 0.6841401261648818,
+          "t_stat": -5.210468215625914,
+          "avg_cost_r": 0.0886024899560972,
+          "avg_bars_held": 1.0
+        },
+        "US500": {
+          "trades": 1687,
+          "trades_per_year": 237.26482479784366,
+          "win_rate_pct": 41.90871369294606,
+          "avg_r": -0.26174219021890155,
+          "total_r": -441.5590748992869,
+          "profit_factor": 0.6207339462090303,
+          "t_stat": -6.39162872500532,
+          "avg_cost_r": 0.1754092371904229,
+          "avg_bars_held": 1.0
+        },
+        "USTEC": {
+          "trades": 631,
+          "trades_per_year": 88.74576434347324,
+          "win_rate_pct": 45.800316957210775,
+          "avg_r": -0.12115257917243197,
+          "total_r": -76.44727745780457,
+          "profit_factor": 0.8008056533710227,
+          "t_stat": -1.9203513211481813,
+          "avg_cost_r": 0.10625272429513882,
+          "avg_bars_held": 1.0
+        }
+      },
+      "daily_sharpe_annual": -2.3865208157735736,
+      "cost_x2": {
+        "total_r": -1378.6714292226618,
+        "avg_r": -0.3440657422567162
+      },
+      "shuffled": {
+        "runs": 20,
+        "mean_total_r": -671.1560827751739,
+        "profitable_runs": 0,
+        "total_r_p95": -446.9876588892652,
+        "all": [
+          -599.7,
+          -609.6,
+          -536.9,
+          -837.0,
+          -345.7,
+          -882.6,
+          -529.3,
+          -644.6,
+          -452.3,
+          -758.5,
+          -762.5,
+          -495.0,
+          -639.9,
+          -775.0,
+          -764.2,
+          -694.7,
+          -692.0,
+          -578.2,
+          -920.9,
+          -904.7
+        ]
+      },
+      "dsr_5_trials": 6.328557488719297e-36,
+      "checks": {
+        "enough_trades (>=300)": true,
+        "profitable_after_costs (avg R > 0, t > 2)": false,
+        "survives_2x_costs": false,
+        "deflated_sharpe >= 0.95": false,
+        "beats 95% of shuffled runs": false,
+        "harness_sane (shuffled mean loses)": true
+      },
+      "verdict": "FAIL"
+    }
+  }
+}

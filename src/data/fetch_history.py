@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-TIMEFRAMES = ["M15", "H1", "H4", "D1"]
+TIMEFRAMES = ["M15", "M30", "H1", "H4", "D1"]
 
 
 def main():

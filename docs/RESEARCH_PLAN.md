@@ -81,3 +81,33 @@ and is recorded here.
   account or more capital. Research and demo results in R are unaffected.
 - **Running hours:** Track 1 needs the PC on during the US session (about 20:15 to 02:45
   Nepal time). Tracks 2 and 3 need one check a day.
+
+## Results
+
+### Track 1, intraday momentum: FAIL (2026-11-15)
+
+Development period 2018-03 to 2025-04 (USTEC from 2022-07), half-hour bars, costs from
+`config/symbols.yaml`. Code: `src/research/intraday_momentum.py`; reports in `reports/research/`.
+The hold-out was **not** run, because neither trial passed on development data.
+
+| Trial | Trades (per yr) | Avg R | t | Daily Sharpe (yr) | 2x costs | Shuffled data | Verdict |
+|---|---|---|---|---|---|---|---|
+| A noise band | 3,730 (525) | +0.036 | 1.40 | 0.41 | -125 R | beat all 20 runs (their mean -267 R) | FAIL |
+| B Gao last half hour | 4,007 (564) | -0.216 | -8.3 | -2.39 | -1,379 R | worse than the shuffled 95th percentile | FAIL |
+
+- **A, by index:** US500 +0.044 R (t 0.99), US30 0.000 R, USTEC +0.121 R (t 2.05, 568 trades).
+- **A is the most interesting result so far.** Before costs it makes about +0.11 R per trade
+  and it beats every shuffled run, so the intraday momentum effect looks real on this data.
+  But costs (about 0.07 R per trade) take two thirds of it, and it loses at 2x costs. It
+  would need materially cheaper index trading than this broker's spreads to be worth running.
+  Per the plan it is not re-tuned.
+- **B loses before costs** (about -0.09 R gross), so the published last-half-hour effect is
+  absent or reversed here. Costs make it clearly negative.
+- **Deflated Sharpe** is 0.00 for both, counted against the plan's 5 trials.
+- **Data fix, decided before re-reading results:** the broker's Oct-Dec 2024 half-hour bars
+  for all three indexes are near-flat (median bar range 0.1-0.5 bps against about 15-30
+  normally), which produced trades of +/-1,000 R or more. Days whose median bar range is
+  under a fifth of the symbol's typical day are now dropped (about 50 days per index).
+  This was found and fixed after the first run; both trials still fail without it.
+
+Trials used so far in this plan: 2 of 5.
