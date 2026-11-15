@@ -277,3 +277,11 @@ def test_signals_only_cannot_send_orders(gw):
     assert broker_symbol("XAUUSD", "SwitchMarkets-Live") == "XAUUSDs"
     assert broker_symbol("FRA40", "SwitchMarkets-Live") == "F40s"
     assert broker_symbol("XAUUSD", "MetaQuotes-Demo") == "XAUUSD"
+
+
+def test_server_time_converts_to_utc_with_eu_daylight_saving():
+    from src.live.overview import server_to_utc
+    winter = pd.Timestamp("2026-11-13 23:54:59").value // 10**9   # EET, UTC+2
+    summer = pd.Timestamp("2026-07-10 16:30:00").value // 10**9   # EEST, UTC+3
+    assert server_to_utc(winter).strftime("%Y-%m-%d %H:%M") == "2026-11-13 21:54"
+    assert server_to_utc(summer).strftime("%Y-%m-%d %H:%M") == "2026-07-10 13:30"

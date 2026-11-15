@@ -263,8 +263,46 @@ def income(mt5, since=None) -> dict:
             "avg_loss": round(sum(losses) / len(losses), 2) if losses else None, "deposits": round(deposits, 2)}
 
 
+SERVER_TZ = "Europe/Athens"  # MT5 server clocks here (MetaQuotes-Demo, Switch Markets) run on EET/EEST
+OPEN_IF_TICK_WITHIN_S = 15 * 60
+
+
+def server_to_utc(seconds: int):
+    """MT5 times are the server's wall clock written as epoch seconds; convert to real UTC."""
+    import pandas as pd
+    return (pd.Timestamp(int(seconds), unit="s").tz_localize(SERVER_TZ, ambiguous=True, nonexistent="shift_forward")
+            .tz_convert("UTC"))
+
+
+def market_hours(mt5, name: str, now=None) -> dict:
+    """Open if the broker sent a price in the last 15 minutes. When closed over a weekend, the usual
+    reopening time comes from the market's own history: the first hourly bar after last weekend's gap."""
+    import pandas as pd
+    now = now or pd.Timestamp.now(tz="UTC")
+    t = mt5.symbol_info_tick(name)
+    if t is None or not t.time:
+        return {"open": None}
+    last = server_to_utc(t.time)
+    is_open = (now - last).total_seconds() < OPEN_IF_TICK_WITHIN_S
+    out = {"open": is_open, "last_tick_utc": last.isoformat()}
+    if is_open:
+        return out
+    weekend = (now - last) > pd.Timedelta(hours=20) or now.dayofweek >= 5
+    out["reason"] = "weekend" if weekend else "session break"
+    rates = mt5.copy_rates_from_pos(name, mt5.TIMEFRAME_H1, 0, 400)
+    if weekend and rates is not None and len(rates) > 2:
+        times = [server_to_utc(x) for x in rates["time"]]
+        reopen = [b for a, b in zip(times, times[1:]) if (b - a) > pd.Timedelta(hours=24)]
+        if reopen:
+            nxt = reopen[-1]
+            while nxt <= last:
+                nxt += pd.Timedelta(days=7)
+            out["reopens_utc"] = nxt.isoformat()
+    return out
+
+
 def quotes(mt5, server: str) -> dict:
-    """Latest price and today's change for each market, under the broker's own symbol names."""
+    """Latest price, today's change and open/closed status for each market, under the broker's names."""
     from src.live.signals import broker_symbol
     out = {}
     for m in MARKETS:
@@ -272,12 +310,11 @@ def quotes(mt5, server: str) -> dict:
         mt5.symbol_select(name, True)
         t, d = mt5.symbol_info_tick(name), mt5.copy_rates_from_pos(name, mt5.TIMEFRAME_D1, 0, 2)
         if t is None:
-            out[m] = {"broker": name, "bid": None}
+            out[m] = {"broker": name, "bid": None, "open": None}
             continue
         prev = float(d[-2]["close"]) if d is not None and len(d) == 2 else None
         out[m] = {"broker": name, "bid": t.bid, "ask": t.ask,
-                  "change_pct": (t.bid / prev - 1) * 100 if prev else None,
-                  "time": time.strftime("%Y-%m-%d %H:%M", time.gmtime(t.time))}
+                  "change_pct": (t.bid / prev - 1) * 100 if prev else None, **market_hours(mt5, name)}
     return out
 
 

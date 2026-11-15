@@ -78,6 +78,7 @@ summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
   font: 12px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .log .err { color: var(--critical); } .log .warn { color: var(--warn-text); }
 .note { color: var(--muted); font-size: 12px; margin-top: 18px; }
+.hours { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -111,7 +112,20 @@ const fmt = (x, d = 2) => x == null || isNaN(x) ? "–" : Number(x).toLocaleStri
 const sgn = (x, d = 2) => x == null ? "–" : (x > 0 ? "+" : "") + fmt(x, d);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const cls = x => x == null ? "" : x > 0 ? "pos" : x < 0 ? "neg" : "";
-const t16 = s => s ? esc(s.slice(0, 16).replace("T", " ")) : "–";
+// All times are shown in this computer's own time zone (Nepal time here).
+const toDate = s => new Date(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : s.replace(" ", "T") + "Z");
+const t16 = s => { if (!s) return "–"; const d = toDate(s);
+  return esc(d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })); };
+const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return "local"; } })();
+function until(s) { const m = Math.round((toDate(s) - Date.now()) / 60000); if (m <= 0) return "any minute";
+  return m < 60 ? `in ${m} min` : m < 48 * 60 ? `in ${Math.floor(m / 60)} h ${m % 60} min` : `in ${Math.round(m / 1440)} days`; }
+function openState(q) {
+  if (!q || q.open == null) return { kind: "warn", short: "–", text: "Market status unknown" };
+  if (q.open) return { kind: "good", short: "Open", text: "Market open" };
+  const why = q.reason === "weekend" ? "Closed for the weekend" : "Closed (session break)";
+  const re = q.reopens_utc ? ` · usually reopens ${t16(q.reopens_utc)} (${until(q.reopens_utc)})` : "";
+  return { kind: "bad", short: "Closed", text: `${why} · last price ${t16(q.last_tick_utc)}${re}` };
+}
 const pct = x => x == null ? "–" : Math.round(x * 100) + "%";
 function dot(kind, text) {
   const c = { good: "--good", warn: "--warning", bad: "--critical" }[kind], i = { good: "●", warn: "▲", bad: "■" }[kind];
@@ -164,14 +178,16 @@ function renderProfile() {
 
 function renderTabs() {
   const q = acct?.quotes || {};
-  const items = [["all", "All markets", null], ...data.markets.map(m => [m.market, m.market, q[m.market]?.change_pct])];
-  $("tabs").innerHTML = items.map(([k, l, c]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${tab === k}">${esc(l)}`
+  const items = [["all", "All markets", null, null], ...data.markets.map(m => [m.market, m.market, q[m.market]?.change_pct, q[m.market]])];
+  const odot = qq => { if (!qq || qq.open == null) return ""; const o = openState(qq);
+    return `<span style="color:var(${o.kind === "good" ? "--good" : "--muted"})" title="${esc(o.text)}" aria-label="${o.short}">${o.kind === "good" ? "●" : "○"}</span>`; };
+  $("tabs").innerHTML = items.map(([k, l, c, qq]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${tab === k}">${odot(qq)}${esc(l)}`
     + (c == null ? "" : `<span class="chg ${cls(c)}">${sgn(c)}%</span>`) + `</button>`).join("");
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; try { localStorage.setItem("tab", tab); } catch (e) {} renderTabs(); renderPanel(); });
 }
 
 function decisionTable(rows, showMarket) {
-  return `<div class="feed tablewrap"><table><thead><tr><th>Time (UTC)</th>${showMarket ? "<th>Market</th>" : ""}<th>Decision</th><th>Why</th></tr></thead><tbody>`
+  return `<div class="feed tablewrap"><table><thead><tr><th>Time</th>${showMarket ? "<th>Market</th>" : ""}<th>Decision</th><th>Why</th></tr></thead><tbody>`
     + (rows.map(d => `<tr><td class="t">${t16(d.time)}</td>${showMarket ? `<td>${esc(d.market || "")}</td>` : ""}
       <td><span class="tag ${esc(d.action.replace(" ", "_"))}">${esc(d.action)}</span></td>
       <td>${esc(d.reason.replace(/^[A-Z0-9]+ \d{4}-\d{2}-\d{2}: /, ""))}<span class="det">${esc(details(d))}</span></td></tr>`).join("")
@@ -188,7 +204,12 @@ function statCells(s) {
 function renderPanel() {
   const dec = data.decisions, tr = data.trades;
   if (tab === "all") {
-    $("panel").innerHTML = `<section class="stats">${statCells(statsFor(tr))}</section>
+    const qs = acct?.quotes || {}, rows = data.markets.map(m => ({ m, o: openState(qs[m.market]) }));
+    const openN = rows.filter(r => r.o.kind === "good").length;
+    $("panel").innerHTML = `<div class="state"><b>${openN} of ${rows.length} markets open</b>
+      <div class="hours">${rows.map(r => `<span>${dot(r.o.kind === "good" ? "good" : "bad", r.m.market + ": " + r.o.short)}`
+        + (r.o.kind === "good" ? "" : ` <span class="meta">${qs[r.m.market]?.reopens_utc ? "reopens " + t16(qs[r.m.market].reopens_utc) : ""}</span>`) + `</span>`).join("")}</div></div>
+      <section class="stats">${statCells(statsFor(tr))}</section>
       <h2>Every decision, all markets</h2>${decisionTable(dec, true)}`;
     return;
   }
@@ -202,9 +223,11 @@ function renderPanel() {
     : `Flat, waiting for a setup.`;
   $("panel").innerHTML = `<div class="mhead"><div><div class="label">${esc(m.name)} · ${esc(q.broker || tab)} · ${esc(BOT[m.bot])}</div>
       <span class="price">${fmt(q.bid)}</span> <span class="${cls(q.change_pct)}">${sgn(q.change_pct)}% today</span></div>
-      <span class="meta">${q.time ? "last quote " + esc(q.time) + " UTC" : ""}</span></div>
+      </div>
+    <div style="margin:-4px 0 12px">${dot(openState(q).kind, openState(q).text)}</div>
     <div class="state">${state}${last ? `<div style="margin-top:6px"><span class="tag ${esc(last.action.replace(" ", "_"))}">${esc(last.action)}</span>
-      ${esc(last.reason.replace(/^[A-Z0-9]+ \d{4}-\d{2}-\d{2}: /, ""))} <span class="meta">${t16(last.time)} UTC</span></div>` : ""}</div>
+      ${esc(last.reason.replace(/^[A-Z0-9]+ \d{4}-\d{2}-\d{2}: /, ""))} <span class="meta">${t16(last.time)}</span></div>` : ""}
+      <div class="meta" style="margin-top:6px">${esc(m.bot === "gold" ? "Checks every hour while the market is open." : "Checks once a day, when the next trading day starts.")}</div></div>
     <section class="stats">${statCells(statsFor(mtr))}</section>
     <h2>Decisions on ${esc(tab)}</h2>${decisionTable(mdec, false)}`;
 }
@@ -227,7 +250,7 @@ async function tick() {
       fetch("/api/logs").then(r => r.json()).catch(() => null)]);
     data = o; acct = a; logData = l;
     if (tab !== "all" && !data.markets.some(m => m.market === tab)) tab = "all";
-    $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
+    $("updated").textContent = `Updated ${new Date().toLocaleTimeString()} · times in ${TZ}`;
     renderProfile(); renderTabs(); renderPanel(); renderLogs();
   } catch (e) { $("updated").textContent = "Dashboard server not reachable"; }
 }
