@@ -228,3 +228,22 @@ buying) two confirmation steps, each of which can stop it.
   that: the strategy stays unproven by the plan's strictest test.
 - 40 trades cannot separate +0.06 R from 0 (that would need about 1,500). Step B is a
   check that nothing is broken, not proof of profit.
+
+### Step A result: PASS (2026-11-15)
+
+Run once with `python -m src.research.index_dips --holdout`, code unchanged since `01e911e`.
+
+| Trades (2025-05 to 2026-11) | Win rate | Avg R | Total R | t | 2x costs | Bootstrap 5th pct (n=88) | Bootstrap median |
+|---|---|---|---|---|---|---|---|
+| 88 | 64% | +0.051 | +4.5 R | 1.26 | +2.0 R | -1.9 R | +5.5 R |
+
+- **Pass:** total R is above 0 and above the bootstrap's 5th percentile. It sits at the 41st
+  percentile of what the development trades would produce, so it looks like development, not better.
+- **By index:** JPN225 +4.1 R (18 trades), US500 +2.8 R (9, all winners), US30 +1.0 R,
+  USTEC +0.7 R, DE40 0.0 R; AUS200 -1.9 R, FRA40 -1.7 R, EUSTX50 -0.4 R. Five stops, all
+  in AUS200, FRA40 and EUSTX50.
+- **Data hole effect:** the broker's Jul-Sep 2025 hole in the US indexes and DE40 restarts
+  the 200-day average, so those 4 indexes took no trades from about July 2025 to June 2026.
+  Most hold-out trades come from JPN225, AUS200, FRA40 and EUSTX50.
+- **What it does not show:** t 1.26 on 88 trades is not proof. It shows the strategy did not
+  break on data it had never seen. Step B (demo) is next under the revision's rules.
