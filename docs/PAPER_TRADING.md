@@ -76,3 +76,12 @@ broker. Check that every decision matches the backtest rules (re-download D1 dat
 .venv/Scripts/python -m src.live.dip_trader check
 .venv/Scripts/python -m src.live.ledger summary reports/live/ledger_DIPS_D1.jsonl
 ```
+
+## Real account: signals only
+
+When MT5 is logged in to a real account, both bots switch to signals-only mode instead of
+stopping: they read the broker's prices (names mapped in `config/broker_symbols.yaml`, e.g.
+`XAUUSDs`) and log every decision to `*_signals` ledgers and logs, sized from the real
+account's equity. Their order functions are replaced by ones that raise, so they place no
+trades. When MT5 is back on a demo account they return to demo trading. The dashboard
+shows whichever view matches the account MT5 is on.

@@ -265,3 +265,15 @@ def test_overview_classifies_decisions_and_pairs_trades():
              "pnl_usd": 5.0, "r_net": 0.5}]
     [t] = trades("dips", recs)
     assert t["market"] == "US500" and t["entry"] == 100.0 and t["r"] == 0.5 and t["closed"] == "t2"
+
+
+def test_signals_only_cannot_send_orders(gw):
+    from src.live.signals import broker_symbol, forbid_orders
+    forbid_orders(gw)
+    for call in (lambda: gw.send_order(PROP, 0.01, client_tag="t"), lambda: gw.close_position(None),
+                 lambda: gw.modify_sltp(1, "XAUUSD", 1.0, 2.0), lambda: gw.close_all_positions()):
+        with pytest.raises(RuntimeError, match="orders are disabled"):
+            call()
+    assert broker_symbol("XAUUSD", "SwitchMarkets-Live") == "XAUUSDs"
+    assert broker_symbol("FRA40", "SwitchMarkets-Live") == "F40s"
+    assert broker_symbol("XAUUSD", "MetaQuotes-Demo") == "XAUUSD"

@@ -32,19 +32,30 @@ if (-not (Get-NetTCPConnection -LocalPort 8050 -State Listen -ErrorAction Silent
 
 # Index dip demo trial (docs/RESEARCH_PLAN.md, Revision 1 Step B): its own restart loop.
 Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-    "-File", (Join-Path $PSScriptRoot "start_dips.ps1") -WorkingDirectory $root -WindowStyle Hidden
+    "-File", "`"$(Join-Path $PSScriptRoot 'start_dips.ps1')`"" -WorkingDirectory $root -WindowStyle Hidden  # quoted: the path has a space
 Say "Started the dip trader loop."
 
+# Demo account: the bot trades the demo. Real account: it runs signals-only (logs every
+# decision, orders disabled) and switches back when MT5 is on demo again.
+$SIGNALS_DEMO_EXIT = 4
+$signals = $false
 while ($true) {
-    Say "Starting paper trader."
-    # The trader writes its own log (paper_XAUUSD_H1.log); stderr is kept for startup crashes.
-    $p = Start-Process $py -ArgumentList "-m", "src.live.paper_trader", "--sizing-equity", "1000", "--risk-config", "config/risk_limits_1k.yaml" `
-        -WorkingDirectory $root -NoNewWindow -Wait -PassThru `
+    $args_ = @("-m", "src.live.paper_trader", "--sizing-equity", "1000", "--risk-config", "config/risk_limits_1k.yaml")
+    if ($signals) { $args_ += "--signals-only" }
+    Say "Starting gold bot ($(if ($signals) { 'signals only, real account' } else { 'demo trading' }))."
+    # The trader writes its own log (paper_XAUUSD_H1*.log); stderr is kept for startup crashes.
+    $p = Start-Process $py -ArgumentList $args_ -WorkingDirectory $root -NoNewWindow -Wait -PassThru `
         -RedirectStandardError (Join-Path $logDir "autostart_trader.err")
     $code = $p.ExitCode
     if ($code -eq $LIVE_ACCOUNT_EXIT) {
-        Say "Trader refused a non-demo account (exit $code). Not restarting."
-        break
+        Say "MT5 is on a non-demo account: switching to signals only (no orders)."
+        $signals = $true
+        continue
+    }
+    if ($code -eq $SIGNALS_DEMO_EXIT) {
+        Say "MT5 is on a demo account again: switching back to demo trading."
+        $signals = $false
+        continue
     }
     Say "Trader exited with code $code; restarting in 60 s."
     Start-Sleep -Seconds 60

@@ -37,6 +37,7 @@ from src.harness.costs import load_cost_model
 from src.harness.meta_strategy import MetaLabelBreakout
 from src.harness.walkforward import fit_for_live
 from src.live.ledger import Ledger
+from src.live.signals import SIGNALS_DEMO_EXIT, SwitchToTrading, broker_symbol, forbid_orders, real_equity_usd
 from src.risk.risk_engine import AccountState, OrderProposal, RiskEngine
 from src.run_harness import load_bars
 
@@ -158,20 +159,26 @@ class State:
 class PaperTrader:
     def __init__(self, symbol="XAUUSD", timeframe="H1", data_tag="_2009", sizing_equity=3000.0,
                  dry_run=False, magic=777101, fill_window_min=15, out_dir="reports/live", risk_pct=None,
-                 risk_config="config/risk_limits.yaml"):
+                 risk_config="config/risk_limits.yaml", signals_only=False):
         self.symbol, self.tf, self.data_tag = symbol, timeframe, data_tag
+        self.mt5_symbol = symbol      # the broker's name for it, set on connect (config/broker_symbols.yaml)
+        self.signals_only = signals_only
+        dry_run = dry_run or signals_only  # signals-only never orders: every order path is the dry-run one
         self.bar = BAR[timeframe]
         self.dry_run, self.fill_window = dry_run, timedelta(minutes=fill_window_min)
         self.costs = load_cost_model(symbol)
         self.strategy = MetaLabelBreakout(self.costs, regime_features=True)
         self.gateway = DemoGateway(magic_number=magic)
+        if signals_only:
+            forbid_orders(self.gateway)
         self.risk = RiskEngine(risk_config)
         if risk_pct:  # override the config's per-trade risk (the min-lot cap and breakers stay)
             self.risk.max_risk_per_trade_pct = risk_pct
         out = Path(out_dir)
         (out / "logs").mkdir(parents=True, exist_ok=True)
         stem = f"{symbol}_{timeframe}"
-        dry = "_dry" if dry_run else ""  # dry runs keep their own ledger so the real record stays clean
+        # dry runs and real-account signals keep their own ledgers so the demo record stays clean
+        dry = "_signals" if signals_only else "_dry" if dry_run else ""
         self.ledger = Ledger(out / f"ledger_{stem}{dry}.jsonl")
         self.state_path = out / f"state_{stem}{dry}.json"
         self.state = State.load(self.state_path)
@@ -190,7 +197,8 @@ class PaperTrader:
     def connect(self, attempts: int = 6) -> bool:
         for i in range(attempts):
             if mt5.initialize(timeout=10000) and mt5.terminal_info() is not None and mt5.terminal_info().connected:
-                mt5.symbol_select(self.symbol, True)
+                self.mt5_symbol = broker_symbol(self.symbol, mt5.account_info().server)
+                mt5.symbol_select(self.mt5_symbol, True)
                 self.terminal_exe = str(Path(mt5.terminal_info().path) / "terminal64.exe")
                 return True
             wait = min(60, 5 * 2 ** i)
@@ -219,7 +227,7 @@ class PaperTrader:
     # ---------------------------------------------------------------- data + model
 
     def fetch_closed(self, count=600) -> tuple:
-        rates = mt5.copy_rates_from_pos(self.symbol, TIMEFRAMES[self.tf], 0, count)
+        rates = mt5.copy_rates_from_pos(self.mt5_symbol, TIMEFRAMES[self.tf], 0, count)
         if rates is None or len(rates) < 3:
             raise RuntimeError(f"no bars from MT5: {mt5.last_error()}")
         df = pd.DataFrame(rates)
@@ -234,7 +242,7 @@ class PaperTrader:
             raise SystemExit(f"History file missing. Run: python -m src.data.fetch_history --symbols {self.symbol} "
                              f"--timeframes {self.tf} --start 2009-01-01 --tag {self.data_tag}")
         start = hist.index[-1] - timedelta(days=3)
-        rates = mt5.copy_rates_range(self.symbol, TIMEFRAMES[self.tf], start.to_pydatetime(), datetime.now() + timedelta(days=2))
+        rates = mt5.copy_rates_range(self.mt5_symbol, TIMEFRAMES[self.tf], start.to_pydatetime(), datetime.now() + timedelta(days=2))
         if rates is not None and len(rates):
             gap = pd.DataFrame(rates)
             gap["time"] = pd.to_datetime(gap["time"], unit="s")
@@ -266,7 +274,7 @@ class PaperTrader:
 
     def reconcile(self):
         """Record trades that closed (stop/target at the broker, or our own closes)."""
-        open_tickets = {str(p.ticket) for p in self.gateway.bot_positions(self.symbol)}
+        open_tickets = {str(p.ticket) for p in self.gateway.bot_positions(self.mt5_symbol)}
         for ticket, info in list(self.state.positions.items()):
             if ticket in open_tickets:
                 continue
@@ -287,7 +295,7 @@ class PaperTrader:
                                entry_price=info["entry_price"], exit_price=exits[-1].price,
                                exit_reason=reason, pnl_usd=round(pnl, 2), r_net=round(pnl / risk_usd, 4), lots=info["lots"])
             del self.state.positions[ticket]
-        for p in self.gateway.bot_positions(self.symbol):  # adopt positions we lost track of (e.g. crash mid-order)
+        for p in self.gateway.bot_positions(self.mt5_symbol):  # adopt positions we lost track of (e.g. crash mid-order)
             if str(p.ticket) not in self.state.positions and p.sl:
                 self.state.positions[str(p.ticket)] = dict(
                     direction=1 if p.type == mt5.POSITION_TYPE_BUY else -1, lots=p.volume, entry_price=p.price_open,
@@ -298,8 +306,13 @@ class PaperTrader:
     def account(self) -> AccountState:
         """Risk-check equity: the planned account (sizing equity + this bot's P&L), or real equity."""
         real = self.gateway.get_account_state()
-        if self.state.sizing_equity:
-            floating = sum(p.profit + p.swap for p in self.gateway.bot_positions(self.symbol))
+        if self.signals_only:
+            real.is_demo = True  # orders are disabled (forbid_orders), so run the risk check as it would run on demo
+            # Size from the real account's own equity (converted to USD), not a planned account.
+            self.state.sizing_equity = round(real_equity_usd(mt5), 2)
+            real.equity = real.balance = self.state.sizing_equity
+        elif self.state.sizing_equity:
+            floating = sum(p.profit + p.swap for p in self.gateway.bot_positions(self.mt5_symbol))
             real.equity = real.balance = self.state.sizing_equity + self.state.closed_pnl + floating
         st = self.state
         st.peak_equity = max(st.peak_equity or real.equity, real.equity)
@@ -317,7 +330,7 @@ class PaperTrader:
     def step(self):
         closed, forming = self.fetch_closed()
         last_closed = closed.index[-1]
-        tick = mt5.symbol_info_tick(self.symbol)
+        tick = mt5.symbol_info_tick(self.mt5_symbol)
         if tick is not None and tick.time_msc != self._last_tick_msc:
             self._last_tick_msc, self._tick_changed_at = tick.time_msc, time.monotonic()
         self.reconcile()
@@ -341,7 +354,7 @@ class PaperTrader:
                 {"bar_time": str(last_closed), "close": float(closed["close"].iloc[-1]), "breakout": 0, "signal": 0,
                  "probability": None, "threshold": None, "model_ready": False, "sl_dist": None, "tp_dist": None})
 
-        positions = self.gateway.bot_positions(self.symbol)
+        positions = self.gateway.bot_positions(self.mt5_symbol)
         pos = positions[0] if positions else None
         pos_dir = 0 if pos is None else (1 if pos.type == mt5.POSITION_TYPE_BUY else -1)
         held = bars_held(self.history.index, pd.to_datetime(pos.time, unit="s"), self.bar) if pos else 0
@@ -380,11 +393,11 @@ class PaperTrader:
         self.reconcile()
 
     def open(self, direction, info, acct, forming, signal_time):
-        market = self.gateway.get_market_conditions(self.symbol)
+        market = self.gateway.get_market_conditions(self.mt5_symbol)
         entry = market.ask if direction > 0 else market.bid
         sl = entry - direction * info["sl_dist"]
         tp = entry + direction * info["tp_dist"]
-        proposal = OrderProposal(self.symbol, "BUY" if direction > 0 else "SELL", entry, sl, tp,
+        proposal = OrderProposal(self.mt5_symbol, "BUY" if direction > 0 else "SELL", entry, sl, tp,
                                  strategy_id=self.strategy.name)
         ok, why, lots = self.risk.validate_proposal(proposal, acct, market, self.costs.contract_size)
         risk_usd = (lots or self.risk.min_lot_size) * self.costs.contract_size * info["sl_dist"]
@@ -406,10 +419,10 @@ class PaperTrader:
         if not res.success:
             self.ledger.append("error", f"Order failed: {res.message}", **details)
             return
-        pos = next((p for p in self.gateway.bot_positions(self.symbol) if p.comment == tag), None)
+        pos = next((p for p in self.gateway.bot_positions(self.mt5_symbol) if p.comment == tag), None)
         fill = pos.price_open if pos else res.price
         if pos:  # re-anchor stop/target to the real fill, as the simulator measures from the entry
-            self.gateway.modify_sltp(pos.ticket, self.symbol, round(fill - direction * info["sl_dist"], 2),
+            self.gateway.modify_sltp(pos.ticket, self.mt5_symbol, round(fill - direction * info["sl_dist"], 2),
                                      round(fill + direction * info["tp_dist"], 2))
         ticket = str(pos.ticket if pos else res.ticket)
         self.state.positions[ticket] = dict(direction=direction, lots=lots, entry_price=fill, sl_dist=info["sl_dist"],
@@ -421,12 +434,25 @@ class PaperTrader:
 
     # ---------------------------------------------------------------- run loop
 
+    def check_account(self) -> dict:
+        """Demo mode: refuse a non-demo account. Signals-only: leave when the account is demo again."""
+        if not self.signals_only:
+            return self.gateway.verify_demo_account()
+        acc = mt5.account_info()
+        if acc is None:
+            raise ConnectionError("MT5 account info unavailable.")
+        if acc.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO:
+            raise SwitchToTrading()
+        return {"login": acc.login, "server": acc.server}
+
     def run(self, once=False, poll=10):
         if not self.connect():
             raise SystemExit("Could not connect to the MT5 terminal. Open MT5 and log in to the demo account.")
-        acc = self.gateway.verify_demo_account()  # raises on a non-demo account
-        self.ledger.append("session_start", f"Paper trader started on demo #{acc['login']} "
-                                            f"({'dry run, no orders' if self.dry_run else 'placing demo orders'}).",
+        acc = self.check_account()  # demo mode raises on a non-demo account
+        mode = ("signals only on a real account, no orders" if self.signals_only
+                else "dry run, no orders" if self.dry_run else "placing demo orders")
+        self.ledger.append("session_start", f"Gold bot started on #{acc['login']} ({mode}), "
+                                            f"reading {self.mt5_symbol}.", broker_symbol=self.mt5_symbol,
                            login=acc["login"], server=acc["server"], sizing_equity=self.state.sizing_equity, risk_pct=self.risk.max_risk_per_trade_pct,
                            max_min_lot_risk_pct=self.risk.max_min_lot_risk_pct, max_total_drawdown_pct=self.risk.max_total_drawdown_pct,
                            magic=self.gateway.magic_number)
@@ -448,9 +474,9 @@ class PaperTrader:
                     if self._down_since is not None:
                         self.ledger.append("reconnected", f"MT5 back after {(time.monotonic() - self._down_since) / 60:.0f} min.")
                         self._down_since = None
-                    self.gateway.verify_demo_account()
+                    self.check_account()
                     self.step()
-                except LiveAccountError:  # only a non-demo account stops the bot; file errors etc. are logged
+                except (LiveAccountError, SwitchToTrading):  # only an account change stops the bot
                     raise
                 except Exception as e:
                     log.exception("step failed")
@@ -479,18 +505,25 @@ def main():
     p.add_argument("--magic", type=int, default=777101)
     p.add_argument("--risk-pct", type=float, default=None, help="risk per trade as a fraction, e.g. 0.005 = 0.5%% (default: config)")
     p.add_argument("--risk-config", default="config/risk_limits.yaml", help="risk limits file, e.g. config/risk_limits_1k.yaml")
+    p.add_argument("--signals-only", action="store_true",
+                   help="run on a real account's prices and log decisions; orders are disabled")
     args = p.parse_args()
 
     Path("reports/live/logs").mkdir(parents=True, exist_ok=True)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                         handlers=[logging.StreamHandler(),
-                                  logging.FileHandler(f"reports/live/logs/paper_{args.symbol}_{args.timeframe}.log")])
+                                  logging.FileHandler(f"reports/live/logs/paper_{args.symbol}_{args.timeframe}"
+                                                      f"{'_signals' if args.signals_only else ''}.log")])
     try:
         PaperTrader(args.symbol, args.timeframe, args.data_tag, args.sizing_equity, args.dry_run, args.magic,
-                    risk_pct=args.risk_pct, risk_config=args.risk_config).run(args.once, args.poll)
+                    risk_pct=args.risk_pct, risk_config=args.risk_config,
+                    signals_only=args.signals_only).run(args.once, args.poll)
     except LiveAccountError as e:
         log.error("%s", e)
-        sys.exit(LIVE_ACCOUNT_EXIT)  # scripts/start_bot.ps1 never restarts after this code
+        sys.exit(LIVE_ACCOUNT_EXIT)  # scripts/start_bot.ps1 switches to signals-only after this code
+    except SwitchToTrading:
+        log.info("MT5 is on a demo account again; leaving signals-only mode.")
+        sys.exit(SIGNALS_DEMO_EXIT)
 
 
 if __name__ == "__main__":

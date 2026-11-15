@@ -17,6 +17,7 @@ BOTS = {
     "gold": {
         "name": "Gold breakout", "markets": "XAUUSD, hourly", "magic": 777101,
         "ledger": LIVE / "ledger_XAUUSD_H1.jsonl", "state": LIVE / "state_XAUUSD_H1.json",
+        "log": LIVE / "logs" / "paper_XAUUSD_H1.log",
         "autostart_log": LIVE / "logs" / "autostart.log", "heartbeat_s": 120,
         "risk_config": "config/risk_limits_1k.yaml",
         "strategy": "Buys or sells a break of the 100-hour high/low when the model gives it at least 50%. "
@@ -26,6 +27,7 @@ BOTS = {
     "dips": {
         "name": "Index dips", "markets": "US500, US30, USTEC, DE40, AUS200, FRA40, EUSTX50, daily", "magic": 777102,
         "ledger": LIVE / "ledger_DIPS_D1.jsonl", "state": LIVE / "state_DIPS_D1.json",
+        "log": LIVE / "logs" / "dips_D1.log",
         "autostart_log": LIVE / "logs" / "autostart_dips.log", "heartbeat_s": 300,
         "strategy": "Buys an index above its 200-day average after RSI(2) drops below 10. Sells above the "
                     "5-day average or after 10 days. Stop 3x ATR.",
@@ -33,6 +35,22 @@ BOTS = {
         "risk": {"sizing_equity": 100000.0, "risk_per_trade_pct": 0.5, "stop_new_trades_at_total_r": -12.0},
     },
 }
+
+
+# Every market a bot watches, with the bot that trades it (rule names; brokers may rename them).
+MARKETS = {"XAUUSD": "gold", "US500": "dips", "US30": "dips", "USTEC": "dips", "DE40": "dips",
+           "AUS200": "dips", "FRA40": "dips", "EUSTX50": "dips"}
+MARKET_NAMES = {"XAUUSD": "Gold", "US500": "S&P 500", "US30": "Dow Jones", "USTEC": "Nasdaq 100", "DE40": "Germany 40",
+                "AUS200": "Australia 200", "FRA40": "France 40", "EUSTX50": "Euro Stoxx 50"}
+
+
+def files(key: str, signals: bool) -> dict:
+    """Ledger, state and log paths: demo trading, or signals-only on a real account."""
+    cfg = BOTS[key]
+    if not signals:
+        return {k: cfg[k] for k in ("ledger", "state", "log")}
+    add = lambda p: p.with_name(p.stem + "_signals" + p.suffix)
+    return {k: add(cfg[k]) for k in ("ledger", "state", "log")}
 
 
 def _state(path: Path) -> tuple:
@@ -97,7 +115,19 @@ def trades(bot: str, records: list) -> list:
     opened = {}
     rows = []
     for r in records:
-        if r["event"] in ("trade_opened", "order_filled"):
+        if r["event"] == "would_open":  # signals-only / dry run: a paper trade, no order
+            rows.append({"bot": bot, "ticket": None, "paper": True, "market": r.get("symbol") or "XAUUSD",
+                         "side": r.get("action", "BUY"), "opened": r["ts_utc"],
+                         "entry": r.get("entry") or r.get("signal_close"), "stop": r.get("sl"), "target": r.get("tp"),
+                         "lots": r.get("lots"), "risk_usd": r.get("risk_usd"), "closed": None, "exit": None,
+                         "exit_reason": None, "pnl_usd": None, "r": None})
+        elif r["event"] == "would_close":
+            row = next((x for x in reversed(rows) if x.get("paper") and x["market"] == r.get("symbol")
+                        and x["closed"] is None), None)
+            if row:
+                row.update(closed=r["ts_utc"], exit=r.get("exit_price"), exit_reason=r["reason"].split(": ", 1)[-1][:60],
+                           r=r.get("r_gross"))
+        elif r["event"] in ("trade_opened", "order_filled"):
             key = str(r.get("ticket"))
             opened[key] = r
             rows.append({"bot": bot, "ticket": key, "market": r.get("symbol") or "XAUUSD",
@@ -120,21 +150,22 @@ def trades(bot: str, records: list) -> list:
 
 # ----------------------------------------------------------------------------- bots
 
-def bot_status(key: str, now: float = None) -> dict:
+def bot_status(key: str, now: float = None, signals: bool = False) -> dict:
     cfg = BOTS[key]
+    f = files(key, signals)
     now = now or time.time()
-    records = read(cfg["ledger"])
-    ok, n, msg = verify(cfg["ledger"]) if cfg["ledger"].exists() else (True, 0, "no ledger yet")
-    state, age = _state(cfg["state"])
+    records = read(f["ledger"])
+    ok, n, msg = verify(f["ledger"]) if f["ledger"].exists() else (True, 0, "no ledger yet")
+    state, age = _state(f["state"])
     if age is not None:
-        age = now - cfg["state"].stat().st_mtime
+        age = now - f["state"].stat().st_mtime
     stopped = bool(records) and records[-1]["event"] == "session_stop"
     running = age is not None and age < cfg["heartbeat_s"] and not stopped
     autostart = _last_line(cfg["autostart_log"])
     stop_reason = ""
     if not running:
-        if "non-demo" in autostart:
-            stop_reason = "Stopped: MT5 is logged in to a real account, and this bot only trades demo."
+        if "non-demo" in autostart and not signals:
+            stop_reason = "Paused: MT5 is on a real account, where this bot only logs signals."
         elif stopped:
             stop_reason = "Stopped (last ledger entry is a session stop)."
         elif age is None:
@@ -159,7 +190,7 @@ def bot_status(key: str, now: float = None) -> dict:
         risk.update(total_r=state.get("total_r", 0.0), closed_pnl=state.get("closed_pnl", 0.0))
     starts = [r for r in records if r["event"] == "session_start"]
     return {
-        "key": key, "name": cfg["name"], "markets": cfg["markets"], "strategy": cfg["strategy"], "magic": cfg["magic"],
+        "key": key, "name": cfg["name"], "signals_only": signals, "markets": cfg["markets"], "strategy": cfg["strategy"], "magic": cfg["magic"],
         "running": running, "stop_reason": stop_reason, "heartbeat_age_s": None if age is None else round(age),
         "halted": state.get("halted", ""), "ledger_ok": ok, "ledger_records": n, "ledger_msg": msg,
         "trades_closed": len(closed), "total_r": round(sum(rs), 3), "avg_r": round(sum(rs) / len(rs), 3) if rs else None,
@@ -172,24 +203,83 @@ def bot_status(key: str, now: float = None) -> dict:
     }
 
 
-def overview(now: float = None) -> dict:
-    bots = {k: bot_status(k, now) for k in BOTS}
+def overview(now: float = None, signals: bool = False) -> dict:
+    """signals=True: the real-account view (signals-only ledgers); False: the demo trading view."""
+    bots = {k: bot_status(k, now, signals) for k in BOTS}
     all_dec, all_trades, events = [], [], []
-    for k, cfg in BOTS.items():
-        recs = read(cfg["ledger"])
+    for k in BOTS:
+        recs = read(files(k, signals)["ledger"])
         all_dec += decisions(k, recs)
         all_trades += trades(k, recs)
         events += [{"bot": k, "time": r["ts_utc"], "event": r["event"], "reason": r["reason"]}
                    for r in recs if r["event"] in ("session_start", "session_stop", "error", "reconnected",
                                                    "watchdog", "halted", "model_trained", "position_adopted")]
     by_time = lambda x: x["time"] or ""
-    return {"bots": bots,
+    return {"bots": bots, "signals_only": signals,
+            "markets": [{"market": m, "name": MARKET_NAMES[m], "bot": b} for m, b in MARKETS.items()],
             "decisions": sorted(all_dec, key=by_time, reverse=True)[:400],
             "trades": sorted(all_trades, key=lambda x: x["opened"] or x["closed"] or "", reverse=True),
             "events": sorted(events, key=by_time, reverse=True)[:150]}
 
 
+def logs(signals: bool = False, lines: int = 60) -> dict:
+    """The last lines of each bot's own log and its start script's log, newest last."""
+    out = {}
+    for k, cfg in BOTS.items():
+        def tail(path):
+            try:
+                return path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
+            except OSError:
+                return []
+        out[k] = {"bot_log": str(files(k, signals)["log"]), "lines": tail(files(k, signals)["log"]),
+                  "autostart": tail(cfg["autostart_log"])[-15:]}
+    return out
+
+
 # ----------------------------------------------------------------------------- MT5 (read only)
+
+def income(mt5, since=None) -> dict:
+    """Closed-trade results of the whole account from MT5's deal history (bots and manual trades)."""
+    from datetime import datetime
+    deals = mt5.history_deals_get(since or datetime(2000, 1, 1), datetime.now()) or []
+    by_pos, deposits = {}, 0.0
+    for d in deals:
+        if d.type == mt5.DEAL_TYPE_BALANCE:
+            deposits += d.profit
+            continue
+        if d.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
+            continue
+        by_pos.setdefault(d.position_id, []).append(d)
+    results = []
+    for ds in by_pos.values():
+        if not any(d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_OUT_BY) for d in ds):
+            continue  # still open
+        results.append(sum(d.profit + d.swap + d.commission + getattr(d, "fee", 0.0) for d in ds))
+    wins = [x for x in results if x > 0]
+    losses = [x for x in results if x <= 0]
+    return {"closed_trades": len(results), "wins": len(wins), "losses": len(losses),
+            "win_rate": len(wins) / len(results) if results else None, "realised": round(sum(results), 2),
+            "avg_win": round(sum(wins) / len(wins), 2) if wins else None,
+            "avg_loss": round(sum(losses) / len(losses), 2) if losses else None, "deposits": round(deposits, 2)}
+
+
+def quotes(mt5, server: str) -> dict:
+    """Latest price and today's change for each market, under the broker's own symbol names."""
+    from src.live.signals import broker_symbol
+    out = {}
+    for m in MARKETS:
+        name = broker_symbol(m, server)
+        mt5.symbol_select(name, True)
+        t, d = mt5.symbol_info_tick(name), mt5.copy_rates_from_pos(name, mt5.TIMEFRAME_D1, 0, 2)
+        if t is None:
+            out[m] = {"broker": name, "bid": None}
+            continue
+        prev = float(d[-2]["close"]) if d is not None and len(d) == 2 else None
+        out[m] = {"broker": name, "bid": t.bid, "ask": t.ask,
+                  "change_pct": (t.bid / prev - 1) * 100 if prev else None,
+                  "time": time.strftime("%Y-%m-%d %H:%M", time.gmtime(t.time))}
+    return out
+
 
 def account_snapshot(mt5) -> dict:
     acc = mt5.account_info()
@@ -218,4 +308,5 @@ def account_snapshot(mt5) -> dict:
             "margin": acc.margin, "free_margin": acc.margin_free,
             "margin_level": acc.margin_level if acc.margin else None, "leverage": acc.leverage,
             "algo_trading": bool(term and term.trade_allowed), "positions": positions,
+            "income": income(mt5), "quotes": quotes(mt5, acc.server),
             "open_risk": round(open_risk, 2), "open_risk_pct": round(open_risk / acc.equity * 100, 2) if acc.equity else None}

@@ -21,7 +21,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from src.live.ledger import read, summary, verify
-from src.live.overview import account_snapshot, overview
+from src.live.overview import account_snapshot, logs, overview
 
 try:
     import MetaTrader5 as mt5
@@ -37,7 +37,8 @@ CFG = {"symbol": "XAUUSD", "timeframe": "H1", "dir": Path("reports/live"), "magi
 
 
 def _paths():
-    stem = f"{CFG['symbol']}_{CFG['timeframe']}"
+    """The gold bot's ledger and state; on a real account, its signals-only ones."""
+    stem = f"{CFG['symbol']}_{CFG['timeframe']}" + ("_signals" if _real_account() else "")
     return CFG["dir"] / f"ledger_{stem}.jsonl", CFG["dir"] / f"state_{stem}.json"
 
 
@@ -99,9 +100,24 @@ def gold_page():
     return FileResponse(Path(__file__).with_name("dashboard.html"))
 
 
+def _real_account() -> bool:
+    """True when MT5 is logged in to a non-demo account: the page then shows the signals-only ledgers."""
+    if not _mt5_ready():
+        return False
+    acc = mt5.account_info()
+    return acc is not None and acc.trade_mode != mt5.ACCOUNT_TRADE_MODE_DEMO
+
+
 @app.get("/api/overview")
-def api_overview():
-    return overview()
+def api_overview(view: str = "auto"):
+    signals = _real_account() if view == "auto" else view == "signals"
+    return overview(signals=signals)
+
+
+@app.get("/api/logs")
+def api_logs(view: str = "auto"):
+    signals = _real_account() if view == "auto" else view == "signals"
+    return logs(signals)
 
 
 @app.get("/api/account")

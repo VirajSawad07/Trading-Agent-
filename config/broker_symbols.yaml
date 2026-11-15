@@ -1,0 +1,13 @@
+# MT5 symbol names per broker server. The bots' rules, costs and history use the left-hand
+# name; on a listed server they read prices from the right-hand name. Unlisted servers
+# (e.g. MetaQuotes-Demo) use the same name.
+
+SwitchMarkets-Live:
+  XAUUSD: XAUUSDs
+  US500: US500s
+  US30: US30s
+  USTEC: USTECs
+  DE40: DE40s
+  AUS200: AUS200s
+  FRA40: F40s        # "France 40 Index"
+  EUSTX50: STOXX50s  # "EU Stocks 50 Index"

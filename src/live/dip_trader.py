@@ -34,6 +34,7 @@ import pandas as pd
 from src.execution.demo_gateway import DemoGateway, LiveAccountError
 from src.live.ledger import Ledger, read
 from src.live.paper_trader import LIVE_ACCOUNT_EXIT, State
+from src.live.signals import SIGNALS_DEMO_EXIT, SwitchToTrading, broker_symbol, forbid_orders, real_equity_usd
 from src.research.index_dips import EXIT_MA, MAX_DAYS, RSI_MAX, STOP_ATR, indicators
 from src.risk.risk_engine import OrderProposal
 
@@ -47,6 +48,7 @@ MAGIC = 777102
 SIZING_EQUITY = 100_000.0
 RISK_PCT = 0.005
 KILL_R = -12.0          # Revision 1: stop new trades below -12 R in total
+SIGNALS_MIN_LOT_MAX_PCT = 0.05  # signals on a real account: the minimum lot is allowed up to 5% risk
 HISTORY_BARS = 600      # closed daily bars fetched per check (200-day average + room for data holes)
 LEDGER = Path("reports/live/ledger_DIPS_D1.jsonl")
 STATE = Path("reports/live/state_DIPS_D1.json")
@@ -105,10 +107,14 @@ class DipState:
 # ----------------------------------------------------------------------------- trader
 
 class DipTrader:
-    def __init__(self, dry_run=False, symbols=SYMBOLS):
-        self.dry_run, self.symbols = dry_run, symbols
+    def __init__(self, dry_run=False, symbols=SYMBOLS, signals_only=False):
+        self.signals_only = signals_only
+        self.dry_run, self.symbols = dry_run or signals_only, symbols  # signals-only takes every dry-run path
         self.gateway = DemoGateway(magic_number=MAGIC)
-        suffix = "_dry" if dry_run else ""
+        if signals_only:
+            forbid_orders(self.gateway)
+        self.names = {s: s for s in symbols}  # rule name -> broker name, set on connect
+        suffix = "_signals" if signals_only else "_dry" if dry_run else ""
         self.ledger = Ledger(LEDGER.with_name(LEDGER.stem + suffix + LEDGER.suffix))
         self.state_path = STATE.with_name(STATE.stem + suffix + STATE.suffix)
         self.state = DipState.load(self.state_path)
@@ -118,12 +124,14 @@ class DipTrader:
     def connect(self) -> bool:
         ok = mt5.initialize(timeout=10000) and mt5.terminal_info() is not None and mt5.terminal_info().connected
         if ok:
+            server = mt5.account_info().server
             for s in self.symbols:
-                mt5.symbol_select(s, True)
+                self.names[s] = broker_symbol(s, server)
+                mt5.symbol_select(self.names[s], True)
         return bool(ok)
 
     def closed_bars(self, sym: str) -> pd.DataFrame:
-        rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_D1, 1, HISTORY_BARS)  # position 0 is still forming
+        rates = mt5.copy_rates_from_pos(self.names[sym], mt5.TIMEFRAME_D1, 1, HISTORY_BARS)  # position 0 is still forming
         if rates is None or len(rates) < 210:
             raise RuntimeError(f"{sym}: not enough daily bars ({mt5.last_error()})")
         df = pd.DataFrame(rates)
@@ -135,7 +143,7 @@ class DipTrader:
     def reconcile(self):
         open_by_ticket = {p.ticket: p for p in self.gateway.bot_positions()}
         for sym, info in list(self.state.positions.items()):
-            if info.get("ticket") in open_by_ticket or info.get("pending"):
+            if info.get("ticket") in open_by_ticket or info.get("pending") or info.get("virtual"):
                 continue
             deals = self.gateway.position_deals(int(info["ticket"]))
             exits = [d for d in deals if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_OUT_BY)]
@@ -169,33 +177,47 @@ class DipTrader:
         bar = str(x.index[-1].date())
         atr, close = float(x["atr"].iloc[-1]), float(x["close"].iloc[-1])
         stop_dist = STOP_ATR * atr
-        info = mt5.symbol_info(sym)
-        tick = mt5.symbol_info_tick(sym)
-        usd = mt5.order_calc_profit(mt5.ORDER_TYPE_BUY, sym, 1.0, tick.ask, tick.ask + 1.0)
-        lots = lots_for(SIZING_EQUITY * RISK_PCT, stop_dist, usd or 0.0, info.volume_min, info.volume_step,
-                        info.volume_max)
-        details = dict(symbol=sym, signal_bar=bar, signal_close=close, atr=round(atr, 3), stop_dist=round(stop_dist, 3),
+        name = self.names[sym]
+        info = mt5.symbol_info(name)
+        tick = mt5.symbol_info_tick(name)
+        usd = mt5.order_calc_profit(mt5.ORDER_TYPE_BUY, name, 1.0, tick.ask, tick.ask + 1.0)
+        equity = real_equity_usd(mt5) if self.signals_only else SIZING_EQUITY
+        lots = lots_for(equity * RISK_PCT, stop_dist, usd or 0.0, info.volume_min, info.volume_step, info.volume_max)
+        min_lot_risk = stop_dist * (usd or 0.0) * info.volume_min
+        if self.signals_only and lots == 0 and min_lot_risk <= SIGNALS_MIN_LOT_MAX_PCT * equity:
+            lots = info.volume_min  # same rule as the gold bot's real-money profile
+        details = dict(symbol=sym, broker_symbol=name, signal_bar=bar, equity_usd=round(equity, 2),
+                       min_lot_risk_usd=round(min_lot_risk, 2), signal_close=close, atr=round(atr, 3), stop_dist=round(stop_dist, 3),
                        usd_per_unit_lot=usd, lots=lots)
         if lots == 0:
-            self.ledger.append("skipped", f"{sym}: {reason} Skipped: the minimum lot risks more than "
-                                          f"{SIZING_EQUITY * RISK_PCT:.0f} USD with this stop.", **details)
+            cap = (SIGNALS_MIN_LOT_MAX_PCT if self.signals_only else RISK_PCT) * equity
+            self.ledger.append("skipped", f"{sym}: {reason} Skipped: the smallest trade ({info.volume_min} lots of {name}) "
+                                          f"risks {min_lot_risk:.2f} USD = {min_lot_risk / equity:.0%} of a "
+                                          f"{equity:,.2f} USD account; the limit is {cap:.2f} USD.", **details)
             return
         if self.dry_run:
-            self.ledger.append("would_open", f"{sym}: {reason} Dry run: would buy {lots} lots.", **details)
+            # No order. Follow a paper position at the signal close so holds, exits and stops are logged too.
+            sl = close - stop_dist
+            self.state.positions[sym] = dict(virtual=True, signal_bar=bar, entry_price=close, sl=sl, lots=lots,
+                                             risk_usd=stop_dist * (usd or 0.0) * lots)
+            self.ledger.append("would_open", f"{sym}: {reason} "
+                                             f"{'Signal only' if self.signals_only else 'Dry run'}: would buy {lots} lots "
+                                             f"of {name} at about {close:.1f}, stop {sl:.1f} "
+                                             f"(sized as a ${equity:,.0f} account).", **details, sl=round(sl, 3))
             return
         sl = round(tick.ask - stop_dist, info.digits)
-        res = self.gateway.send_order(OrderProposal(sym, "BUY", tick.ask, sl, 0.0, lots, "index_dips"), lots,
+        res = self.gateway.send_order(OrderProposal(name, "BUY", tick.ask, sl, 0.0, lots, "index_dips"), lots,
                                       client_tag=f"dip{sym[:5]}{x.index[-1]:%y%m%d}")
         if not res.success:
             # Market closed (e.g. European index at night): keep the signal and retry next check.
             self.state.positions[sym] = {"pending": True, "signal_bar": bar, "reason": reason}
             log.info("%s: order not filled yet (%s); will retry", sym, res.message)
             return
-        pos = next((p for p in self.gateway.bot_positions(sym) if p.ticket == res.ticket), None)
+        pos = next((p for p in self.gateway.bot_positions(name) if p.ticket == res.ticket), None)
         fill = pos.price_open if pos else res.price
         sl = round(fill - stop_dist, info.digits)
         if pos:
-            self.gateway.modify_sltp(pos.ticket, sym, sl, 0.0)  # stop measured from the real fill, as in the backtest
+            self.gateway.modify_sltp(pos.ticket, name, sl, 0.0)  # stop measured from the real fill, as in the backtest
         risk_usd = stop_dist * usd * lots
         self.state.positions[sym] = dict(ticket=pos.ticket if pos else res.ticket, signal_bar=bar, entry_price=fill,
                                          sl=sl, lots=lots, risk_usd=risk_usd)
@@ -206,11 +228,12 @@ class DipTrader:
 
     def close(self, sym: str, bar: str, reason: str):
         info = self.state.positions[sym]
-        pos = next((p for p in self.gateway.bot_positions(sym) if p.ticket == info["ticket"]), None)
-        if pos is None:
+        pos = None if info.get("virtual") else next(
+            (p for p in self.gateway.bot_positions(self.names[sym]) if p.ticket == info["ticket"]), None)
+        if pos is None and not info.get("virtual"):
             return  # already gone (stop); reconcile records it
-        if self.dry_run:
-            self.ledger.append("would_close", f"{sym}: {reason} Dry run.", symbol=sym, exit_signal_bar=bar)
+        if info.get("virtual"):
+            self.virtual_exit(sym, bar, info["exit_price"] if "exit_price" in info else None, reason)
             return
         info["exit_signal_bar"], info["close_reason"] = bar, reason
         if not self.gateway.close_position(pos, comment=f"dipexit{bar[2:].replace('-', '')}"):
@@ -218,6 +241,16 @@ class DipTrader:
             log.info("%s: close not filled yet; will retry", sym)
             return
         info.pop("close_pending", None)
+
+    def virtual_exit(self, sym: str, bar: str, price: Optional[float], reason: str):
+        """Close a paper position (dry run / signals only) and log what it would have made, before costs."""
+        info = self.state.positions.pop(sym)
+        risk = info["entry_price"] - info["sl"]
+        r = (price - info["entry_price"]) / risk if risk > 0 else 0.0
+        self.state.last_exit[sym] = bar
+        self.ledger.append("would_close", f"{sym}: {reason} Would sell at about {price:.1f}: {r:+.2f} R before costs.",
+                           symbol=sym, exit_signal_bar=bar, entry_price=info["entry_price"], exit_price=price,
+                           r_gross=round(r, 4))
 
     # ---------------------------------------------------------------- one check
 
@@ -250,13 +283,17 @@ class DipTrader:
             return
         x = indicators(bars)
         pos = self.state.positions.get(sym)
+        if pos and pos.get("virtual") and float(bars["low"].iloc[-1]) <= pos["sl"]:
+            stop_px = min(float(bars["open"].iloc[-1]), pos["sl"])
+            self.virtual_exit(sym, bar, stop_px, "Stop hit during the day.")
+            pos = None
         held = None if pos is None else int((x.index > pd.Timestamp(pos["signal_bar"])).sum())
         action, reason = decide(x, held)
         blocked = action == "open" and self.state.last_exit.get(sym) == bar
         if blocked:
             action, reason = None, f"No trade: a position closed during this bar ({reason[:-1]}, but no same-bar re-entry)."
         last = x.iloc[-1]
-        self.ledger.append("decision", f"{sym} {bar}: {reason}", symbol=sym, bar=bar, close=float(last["close"]),
+        self.ledger.append("decision", f"{sym} {bar}: {reason}", symbol=sym, broker_symbol=self.names[sym], bar=bar, close=float(last["close"]),
                            sma200=float(last["sma_trend"]), sma5=float(last["sma_exit"]), rsi2=float(last["rsi"]),
                            atr=float(last["atr"]), held_bars=held, action=action,
                            reentry_blocked=blocked)
@@ -267,14 +304,26 @@ class DipTrader:
             else:
                 self.open(sym, x, reason)
         elif action == "close":
+            if pos and pos.get("virtual"):
+                pos["exit_price"] = float(last["close"])
             self.close(sym, bar, reason)
+
+    def check_account(self) -> dict:
+        """Demo mode: refuse a non-demo account. Signals-only: leave when the account is demo again."""
+        if not self.signals_only:
+            return self.gateway.verify_demo_account()
+        acc = mt5.account_info()
+        if acc.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO:
+            raise SwitchToTrading()
+        return {"login": acc.login, "server": acc.server}
 
     def run(self, poll: int = 60, once: bool = False):
         if not self.connect():
             raise SystemExit("Could not connect to MT5. Open MT5 and log in to the demo account.")
-        acc = self.gateway.verify_demo_account()
-        self.ledger.append("session_start", f"Dip trader started on demo #{acc['login']} "
-                                            f"({'dry run, no orders' if self.dry_run else 'placing demo orders'}).",
+        acc = self.check_account()
+        mode = ("signals only on a real account, no orders" if self.signals_only
+                else "dry run, no orders" if self.dry_run else "placing demo orders")
+        self.ledger.append("session_start", f"Dip trader started on #{acc['login']} ({mode}).", broker_symbols=self.names,
                            login=acc["login"], symbols=self.symbols, sizing_equity=SIZING_EQUITY, risk_pct=RISK_PCT,
                            magic=MAGIC)
         down = False
@@ -291,9 +340,9 @@ class DipTrader:
                         if down:
                             self.ledger.append("reconnected", "MT5 back.")
                         down = False
-                        self.gateway.verify_demo_account()
+                        self.check_account()
                         self.step()
-                except LiveAccountError:
+                except (LiveAccountError, SwitchToTrading):
                     raise
                 except Exception as e:
                     log.exception("step failed")
@@ -339,6 +388,8 @@ def main():
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--once", action="store_true")
     p.add_argument("--poll", type=int, default=60)
+    p.add_argument("--signals-only", action="store_true",
+                   help="run on a real account's prices and log decisions; orders are disabled")
     args = p.parse_args()
     if args.command == "check":
         problems = replay_check()
@@ -346,12 +397,15 @@ def main():
         sys.exit(1 if problems else 0)
     Path("reports/live/logs").mkdir(parents=True, exist_ok=True)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
-                        handlers=[logging.StreamHandler(), logging.FileHandler("reports/live/logs/dips_D1.log")])
+                        handlers=[logging.StreamHandler(), logging.FileHandler(f"reports/live/logs/dips_D1{'_signals' if args.signals_only else ''}.log")])
     try:
-        DipTrader(args.dry_run).run(args.poll, args.once)
+        DipTrader(args.dry_run, signals_only=args.signals_only).run(args.poll, args.once)
     except LiveAccountError as e:
         log.error("%s", e)
-        sys.exit(LIVE_ACCOUNT_EXIT)
+        sys.exit(LIVE_ACCOUNT_EXIT)  # scripts/start_dips.ps1 switches to signals-only after this code
+    except SwitchToTrading:
+        log.info("MT5 is on a demo account again; leaving signals-only mode.")
+        sys.exit(SIGNALS_DEMO_EXIT)
 
 
 if __name__ == "__main__":
