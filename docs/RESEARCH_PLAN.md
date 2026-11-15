@@ -305,3 +305,44 @@ Tracks 1 and 2), and short holds in rising stock indexes did best (Track 3).
   dropped, not re-tuned.
 - **Known in advance:** the deflated Sharpe over 7 trials is likely to be the binding check:
   Track 1's Gao trial (Sharpe -2.39) widens the spread of trial Sharpes a lot.
+
+### Track 4, turn of the month: FAIL (2026-11-16)
+
+Development period 2012-08 to 2025-04, daily bars, 8 indexes. Code: `src/research/revision2.py`.
+
+| Trades (per yr) | Win rate | Avg R | t | Daily Sharpe (yr) | 2x costs | Shuffled data |
+|---|---|---|---|---|---|---|
+| 773 (61) | 49% | -0.025 | -1.40 | -0.20 | -41.1 R | real -19.0 R vs shuffled mean +9.8 R, p95 +34.9 R |
+
+- **Worse than random days.** Buying the same indexes for the same number of days at
+  random (shuffled data) made +9.8 R on average; the turn-of-month timing made -19.0 R.
+  No index was positive: US500, US30, DE40 and JPN225 were about flat; AUS200, FRA40 and
+  EUSTX50 lost 5-6 R each.
+- **Consistent with reports that the effect has faded** since it was published.
+- Costs were small (0.029 R a trade), so this is not a cost problem.
+- Dropped, not re-tuned. Hold-out not run.
+
+### Track 5, dip rule on 4-hour bars: FAIL (2026-11-16)
+
+Development period 2013-05 to 2025-04, 4-hour bars from the SwitchMarkets-Live terminal.
+**7 indexes, not 8:** the terminal returned no 4-hour history for JPN225 ("Call failed",
+retried once), found before the run.
+
+| Trades (per yr) | Win rate | Avg R | t | Daily Sharpe (yr) | 2x costs | Shuffled data |
+|---|---|---|---|---|---|---|
+| 2,738 (229) | 63% | -0.029 | -3.09 | -0.60 | -245 R | real -80.0 R vs shuffled mean -94.1 R, p95 -52.6 R |
+
+- **It did trade often:** 229 a year, against Track 3's 41.
+- **Before costs it made about +0.03 R a trade; costs took about 0.06 R.** The European
+  indexes lost the most (EUSTX50 -52 R, FRA40 -36 R), where the cost file's spreads are
+  widest relative to a 4-hour move (0.20 and 0.14 R a trade).
+- **US indexes were slightly positive** (US30 +0.041 R, t 1.75; US500 +0.013; USTEC +0.012),
+  not enough to pass, and picking them now would be choosing winners after the fact.
+- **Barely better than random:** shuffled data lost -94 R on average, the real rule -80 R.
+- Dropped, not re-tuned. Hold-out not run.
+
+### Where Revision 2 leaves things
+
+Both new tracks failed. Seven trials in this plan have now run: only Track 3 (daily index
+dips) has cleared the profit checks, and it is in its demo trial. The pattern holds: faster
+strategies find small real effects before costs, and this broker's costs remove them.

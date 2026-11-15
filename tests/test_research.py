@@ -163,3 +163,29 @@ def test_dip_lot_sizing():
     # JPN225: min lot 1.0 at $0.63 per point with a 6,700-point stop risks $4,221 -> skip
     assert lots_for(500, 6700, 0.63, 1.0, 1.0, 100) == 0.0
     assert lots_for(500, 377, 1.1, 1.0, 1.0, 100) == 1.0  # FRA40: 1 lot risks $415
+
+
+# ---------------------------------------------------------------- Revision 2
+
+def test_turn_of_month_entry_and_exit_days():
+    from src.research.revision2 import entry_day, tom_trades
+    assert entry_day(pd.Period("2026-10", "M")) == pd.Timestamp("2026-10-29")  # Oct 30 is the last weekday
+    assert entry_day(pd.Period("2026-11", "M")) == pd.Timestamp("2026-11-27")  # Nov 30 is a Monday
+    b = _daily_bars(400)
+    t = pd.DataFrame(tom_trades("X", b, _IDX_COST))
+    assert len(t) > 10
+    nxt = t["exit_time"].dt.to_period("M") - t["entry_time"].dt.to_period("M")
+    assert (nxt.apply(lambda d: d.n) == 1).all()          # always exits in the next month
+    timed = t[t["exit_reason"] == "TIME"]
+    rank = [len(b.loc[e.to_period("M").start_time:e]) for e in timed["exit_time"]]
+    assert set(rank) == {3}                                # on that month's third bar
+    assert (t["r_net"] < t["r_gross"]).all()
+
+
+def test_turn_of_month_has_no_lookahead():
+    from src.research.revision2 import tom_trades
+    b = _daily_bars(500)
+    full = pd.DataFrame(tom_trades("X", b, _IDX_COST))
+    part = pd.DataFrame(tom_trades("X", b.iloc[:350], _IDX_COST))
+    done = full[full["exit_time"] <= b.index[349]].reset_index(drop=True)
+    pd.testing.assert_frame_equal(done, part.reset_index(drop=True))
