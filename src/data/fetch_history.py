@@ -1,6 +1,9 @@
 """Download multi-year OHLC history from the running MT5 terminal.
 
 Unlike src/download_data.py this never falls back to synthetic data: no MT5, no file.
+It only reads prices, so it runs on demo and real accounts alike. On brokers listed in
+config/broker_symbols.yaml it reads the broker's name (e.g. XAUUSDs) and saves the file
+under the bots' name (XAUUSD), so the bots find it.
 
     python -m src.data.fetch_history --symbols XAUUSD EURUSD --timeframes H1 H4 --start 2021-01-01
 """
@@ -18,7 +21,7 @@ TIMEFRAMES = ["M15", "M30", "H1", "H4", "D1"]
 def main():
     import MetaTrader5 as mt5
 
-    parser = argparse.ArgumentParser(description="Download MT5 history (demo account only).")
+    parser = argparse.ArgumentParser(description="Download MT5 price history (read-only; any account).")
     parser.add_argument("--symbols", nargs="+", default=["XAUUSD", "EURUSD"])
     parser.add_argument("--timeframes", nargs="+", default=["H1", "H4"], choices=TIMEFRAMES)
     parser.add_argument("--start", default="2021-01-01")
@@ -28,9 +31,8 @@ def main():
 
     if not mt5.initialize():
         sys.exit(f"[Data] MT5 initialize failed: {mt5.last_error()}")
-    if mt5.account_info().trade_mode != mt5.ACCOUNT_TRADE_MODE_DEMO:
-        mt5.shutdown()
-        sys.exit("[Data] Refusing to run: terminal is not logged in to a demo account.")
+    from src.live.signals import broker_symbol
+    server = mt5.account_info().server
 
     start = datetime.fromisoformat(args.start).replace(tzinfo=timezone.utc)
     end = datetime.now(timezone.utc)
@@ -38,14 +40,15 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     for sym in args.symbols:
-        mt5.symbol_select(sym, True)
+        name = broker_symbol(sym, server)
+        mt5.symbol_select(name, True)
         for tf_name in args.timeframes:
             # One request per year: long ranges exceed the terminal's per-call limit.
             chunks = []
             for year in range(start.year, end.year + 1):
                 lo = max(start, datetime(year, 1, 1, tzinfo=timezone.utc))
                 hi = min(end, datetime(year + 1, 1, 1, tzinfo=timezone.utc))
-                rates = mt5.copy_rates_range(sym, getattr(mt5, f"TIMEFRAME_{tf_name}"), lo, hi)
+                rates = mt5.copy_rates_range(name, getattr(mt5, f"TIMEFRAME_{tf_name}"), lo, hi)
                 if rates is not None and len(rates):
                     chunks.append(pd.DataFrame(rates))
             if not chunks:
