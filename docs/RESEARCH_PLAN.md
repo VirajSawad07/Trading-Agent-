@@ -171,3 +171,60 @@ shuffled runs. **Failed:**
 
 Trials used: 5 of 5. **All three tracks failed the plan's rules.** Per the plan, the next
 step is a written revision of the plan before any more testing.
+
+## Revision 1 (2026-11-15): confirm Track 3, nothing else
+
+Written after all 5 trials failed, before any further test. It does not add trials or
+change rules. It gives the one strategy that passed the money checks (Track 3, index dip
+buying) two confirmation steps, each of which can stop it.
+
+### What is frozen
+
+- **Rules and code:** `src/research/index_dips.py` exactly as in commit `01e911e`: RSI(2) < 10
+  above the 200-day average, exit above the 5-day average or after 10 days, stop 3x ATR(14).
+- **Markets:** all 8 indexes, including FRA40 and JPN225, which lost in development.
+- **Costs:** `config/research_costs.yaml` unchanged.
+- **Not allowed** at any step: a different RSI level, average, stop or hold time; extra
+  filters; dropping markets because they lost; re-running after seeing a result. Any of
+  these would be a new trial and needs another written revision.
+
+### Step A: the hold-out, run once
+
+- **Data:** trades entered from 2025-05-01 to the end of the downloaded data (2026-11-12),
+  about 18 months. Indicators may use earlier bars. The broker's Jul-Sep 2025 index hole is
+  handled by the existing gap rule.
+- **Expected:** about 40-60 trades. That is too few to prove an edge; the step exists to
+  catch a clear failure.
+- **Pass:** total R after costs above 0 **and** above the 5th percentile of 10,000
+  bootstrap samples of the same number of development trades.
+- **Fail:** the strategy is dropped. No second hold-out exists.
+- **Command:** `python -m src.research.index_dips --holdout`.
+
+### Step B: demo trial, only if A passes
+
+- **Account:** the existing MetaQuotes demo, alongside the gold bot, with its own magic
+  number (777102) and its own ledger. Orders go through the same gateway, risk engine and
+  demo-only lock.
+- **Sizing, for research:** as a $100,000 account at 0.5% risk per trade (about $500), so
+  every index can be traded at its stop. JPN225 is left out of the demo: its minimum lot
+  (1.0) with a 3x ATR stop risks about $4,200. Results are measured in R, as in the backtest.
+- **What $1,000 could trade:** at the minimum lot only US500 fits, about $43 risk (4.3%)
+  with today's volatility, inside the 5% limit. Every other index risks $159 to $415 at
+  its minimum lot, too much for $1,000.
+- **Length:** until 40 closed trades or 12 months, whichever comes later. Expected rate
+  is about 3 trades a month across 7 indexes.
+- **Stop early if:** cumulative R falls below -12 R (worse than development's worst
+  drawdown of 10.8 R), or the bot is found to have traded differently from the backtest
+  on the same bars (checked by replaying each demo trade through `trades_for`).
+- **Pass:** average R after costs above 0 over the 40+ trades, and no rule mismatches.
+  That is a low bar; it shows only that the strategy runs as tested and does not obviously
+  fail. Money on a real account would need a further written decision by the account owner.
+
+### Known weaknesses, stated now
+
+- Part of the development result comes from indexes rising over time (shuffled data made
+  +5 R on average). In a long bear market this strategy will mostly sit out or lose.
+- The deflated Sharpe over this plan's 5 trials is 0.002. Passing A and B would not change
+  that: the strategy stays unproven by the plan's strictest test.
+- 40 trades cannot separate +0.06 R from 0 (that would need about 1,500). Step B is a
+  check that nothing is broken, not proof of profit.
