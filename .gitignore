@@ -21,3 +21,7 @@ reports/live/logs/
 reports/live/state_*.json
 reports/live/*_dry.jsonl
 models/live/
+
+# Research run logs (the JSON/CSV reports themselves are tracked) and local state backups
+reports/research/*.log
+reports/live/*.bak
