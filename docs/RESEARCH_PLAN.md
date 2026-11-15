@@ -257,3 +257,51 @@ decision. Trade sizes at today's volatility: US500 1.1 lots ($473 risk), DE40 0.
 FRA40 1.0 ($415), EUSTX50 1.0 ($361), US30 0.1 ($279), USTEC 0.1 ($267), AUS200 0.1 ($252).
 The last three are at their minimum lot, so they risk less than $500; R is measured
 against each trade's actual risk.
+
+## Revision 2 (2026-11-16): two strategies that trade more often, declared before testing
+
+Written before any Revision 2 test is run. Goal from the owner: more trades a year, still
+passing the tests. Lessons from Tracks 1-3: costs decide (spread and overnight fees ate
+Tracks 1 and 2), and short holds in rising stock indexes did best (Track 3).
+
+### Track 4: turn of the month in stock indexes (daily bars)
+
+- **Source:** Lakonishok & Smidt (1988); McConnell & Xu (2008): index returns concentrate
+  in the last trading day of a month and the first three of the next.
+- **Markets:** the 8 indexes of Track 3 (US500, US30, USTEC, DE40, JPN225, AUS200, FRA40,
+  EUSTX50), daily bars from `data/raw/*_D1_mt5.csv`.
+- **Rule:** buy at the close of the first bar on or after the second-to-last weekday
+  (Mon-Fri) of the month; sell at the close of the third bar of the next month. Stop
+  3x ATR(14) below entry (R = stop distance), checked against each day's low.
+- **Expected:** about 12 trades a year per index, about 80-90 a year in total.
+
+### Track 5: Track 3's dip rule on 4-hour bars
+
+- **Source:** the Track 3 rule unchanged, applied to 4-hour bars instead of daily. This is
+  an extension, not a published result.
+- **Markets:** the same 8 indexes, 4-hour bars downloaded from the MT5 terminal
+  (SwitchMarkets-Live feed; history from 2012 for US500 and US30).
+- **Rule:** close above its 200-bar average and RSI(2) below 10: buy at the close. Sell at
+  the close once above the 5-bar average or after 10 bars. Stop 3x ATR(14).
+- **Expected:** several times Track 3's 41 trades a year; costs will matter more.
+
+### Fixed for both
+
+- **Costs:** `config/research_costs.yaml`, unchanged (pessimistic, from the demo broker).
+- **Development data:** up to 2025-04-30. **Hold-out:** from 2025-05-01. That period was
+  used once, by Track 3; it has not been used for these two rules.
+- **Trial count:** 7 (the 5 of the plan plus these 2), for the deflated Sharpe.
+- **Pass on development data:** at least 100 trades; average R after costs above 0 with
+  t > 2; positive at 2x costs; beats the 95th percentile of 20 shuffled-data runs;
+  deflated Sharpe at least 0.95 over the 7 trials.
+- **Changed from Track 3, and why:** the check "shuffled data loses on average" is
+  replaced by "beats the shuffled-data average by at least 2 standard errors of the
+  strategy's total R". Both strategies only buy rising stock indexes, so shuffled data
+  (which keeps the indexes' rise) makes money on average, as Track 3 showed; the check
+  was meant to catch harness bugs, and the 95th-percentile check already tests edge.
+  This change is declared before either track runs.
+- **Then:** a track that passes runs once on the hold-out (pass = total R above 0 and above
+  the 5th percentile of a bootstrap of its development trades). A track that fails is
+  dropped, not re-tuned.
+- **Known in advance:** the deflated Sharpe over 7 trials is likely to be the binding check:
+  Track 1's Gao trial (Sharpe -2.39) widens the spread of trial Sharpes a lot.
