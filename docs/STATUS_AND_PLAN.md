@@ -88,8 +88,8 @@ A bot wins when all five of these hold together:
    the PC-off problem.
 5. **Demo results that match the backtest** before any real money.
 
-Today we have 3 working, 4 partly working, and 1, 2 and 5 still open. The research in
-Step 2 is aimed at 1 and 2.
+Today, point 3 is in place and point 4 is partly in place. Points 1, 2 and 5 are still
+open. The research in Step 2 is aimed at points 1 and 2.
 
 ## 6. What could go wrong
 
