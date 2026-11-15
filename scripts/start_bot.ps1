@@ -30,6 +30,11 @@ if (-not (Get-NetTCPConnection -LocalPort 8050 -State Listen -ErrorAction Silent
     Say "Started dashboard on http://127.0.0.1:8050."
 }
 
+# Index dip demo trial (docs/RESEARCH_PLAN.md, Revision 1 Step B): its own restart loop.
+Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+    "-File", (Join-Path $PSScriptRoot "start_dips.ps1") -WorkingDirectory $root -WindowStyle Hidden
+Say "Started the dip trader loop."
+
 while ($true) {
     Say "Starting paper trader."
     # The trader writes its own log (paper_XAUUSD_H1.log); stderr is kept for startup crashes.

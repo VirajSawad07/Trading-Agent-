@@ -58,3 +58,21 @@ not decided afterwards.
 
 Compare average R per trade with the backtest's +0.105 R. Expect about 16 trades a year,
 so a few weeks of data will not settle anything. The backtest edge itself is unproven.
+
+## Index dip trial (second bot)
+
+`src/live/dip_trader.py` runs the index dip strategy (docs/RESEARCH_PLAN.md, Revision 1,
+Step B) on US500, US30, USTEC, DE40, AUS200, FRA40 and EUSTX50, sized as $100,000 at 0.5%
+risk. It has its own magic number (777102), ledger (`reports/live/ledger_DIPS_D1.jsonl`)
+and log (`reports/live/logs/dips_D1.log`). `scripts/start_bot.ps1` starts it at login
+through `scripts/start_dips.ps1`, which restarts it if it exits.
+
+It decides once per index per day, when the next session's first bar appears, so it fills
+at about the next open while the backtest fills at the signal close. The stop sits at the
+broker. Check that every decision matches the backtest rules (re-download D1 data first):
+
+```bash
+.venv/Scripts/python -m src.data.fetch_history --symbols US500 US30 USTEC DE40 AUS200 FRA40 EUSTX50 --timeframes D1 --start 2012-01-01
+.venv/Scripts/python -m src.live.dip_trader check
+.venv/Scripts/python -m src.live.ledger summary reports/live/ledger_DIPS_D1.jsonl
+```

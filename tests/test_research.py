@@ -128,3 +128,38 @@ def test_dip_trades_follow_the_rules():
     assert (t["r_net"] < t["r_gross"]).all()
     stops = t[t["exit_reason"] == "STOP"]
     assert (stops["r_gross"] <= -1 + 1e-9).all()  # a stop loses at least 1 R before costs
+
+
+# ---------------------------------------------------------------- Step B: the demo bot follows the backtest
+
+def test_dip_trader_decisions_reproduce_backtest_trades():
+    """Walk the bars one day at a time as the live bot does (stop at the broker, rules at
+    each close) and check it enters and exits on exactly the backtest's bars."""
+    from src.live.dip_trader import decide
+    from src.research.index_dips import STOP_ATR, indicators, trades_for
+    b = _daily_bars(900, seed=5)
+    expected = pd.DataFrame(trades_for("X", b, _IDX_COST))[["entry_time", "exit_time"]]
+    x_all = indicators(b)
+    got, pos, last_exit = [], None, None
+    for k in range(len(b)):
+        if pos is not None and b["low"].iloc[k] <= pos["stop"]:          # broker stop during bar k
+            got.append((pos["entry"], b.index[k])); pos, last_exit = None, k
+        x = x_all.iloc[: k + 1]
+        held = None if pos is None else k - pos["k"]
+        action, _ = decide(x, held)
+        if action == "open" and pos is None and last_exit != k and k < len(b) - 1:
+            pos = {"entry": b.index[k], "k": k, "stop": x["close"].iloc[-1] - STOP_ATR * x["atr"].iloc[-1]}
+        elif action == "close" and pos is not None:
+            got.append((pos["entry"], b.index[k])); pos, last_exit = None, k
+    got = pd.DataFrame(got, columns=["entry_time", "exit_time"])
+    assert len(expected) > 10
+    pd.testing.assert_frame_equal(got.iloc[: len(expected)].reset_index(drop=True), expected.reset_index(drop=True))
+
+
+def test_dip_lot_sizing():
+    from src.live.dip_trader import lots_for
+    # US500: stop 430 points, $1 per point per lot, $500 risk -> 1.1 lots
+    assert lots_for(500, 430, 1.0, 0.1, 0.1, 1000) == 1.1
+    # JPN225: min lot 1.0 at $0.63 per point with a 6,700-point stop risks $4,221 -> skip
+    assert lots_for(500, 6700, 0.63, 1.0, 1.0, 100) == 0.0
+    assert lots_for(500, 377, 1.1, 1.0, 1.0, 100) == 1.0  # FRA40: 1 lot risks $415

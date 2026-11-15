@@ -247,3 +247,13 @@ Run once with `python -m src.research.index_dips --holdout`, code unchanged sinc
   Most hold-out trades come from JPN225, AUS200, FRA40 and EUSTX50.
 - **What it does not show:** t 1.26 on 88 trades is not proof. It shows the strategy did not
   break on data it had never seen. Step B (demo) is next under the revision's rules.
+
+### Step B started (2026-11-15)
+
+`src/live/dip_trader.py` is running on the demo account from 2026-11-15, started at login
+with the gold bot. Its rule decisions are tested against the backtest bar by bar
+(`tests/test_research.py`), and `python -m src.live.dip_trader check` replays every logged
+decision. Trade sizes at today's volatility: US500 1.1 lots ($473 risk), DE40 0.3 ($477),
+FRA40 1.0 ($415), EUSTX50 1.0 ($361), US30 0.1 ($279), USTEC 0.1 ($267), AUS200 0.1 ($252).
+The last three are at their minimum lot, so they risk less than $500; R is measured
+against each trade's actual risk.
