@@ -246,3 +246,22 @@ def test_watchdog_restarts_mt5_only_after_a_long_outage():
     assert should_restart_terminal(11 * 60, None)            # frozen 11 min: restart
     assert not should_restart_terminal(60 * 60, 10 * 60)     # restarted 10 min ago: wait
     assert should_restart_terminal(60 * 60, 31 * 60)         # still down 30+ min after: try again
+
+
+def test_overview_classifies_decisions_and_pairs_trades():
+    from src.live.overview import classify, trades
+    assert classify("gold", {"actions": [["open", 1]]}) == "BUY"
+    assert classify("gold", {"actions": [["close", "REVERSE"], ["open", -1]]}) == "SELL"
+    assert classify("gold", {"actions": [["close", "TIME"]], "position": 1}) == "CLOSE"
+    assert classify("gold", {"actions": [], "position": -1}) == "HOLD"
+    assert classify("gold", {"actions": [], "position": 0, "breakout": -1}) == "SKIP"
+    assert classify("gold", {"actions": [], "position": 0, "breakout": 0}) == "NO TRADE"
+    assert classify("dips", {"action": "open"}) == "BUY"
+    assert classify("dips", {"action": None, "held_bars": 3}) == "HOLD"
+    assert classify("dips", {"action": None, "held_bars": None}) == "NO TRADE"
+    recs = [{"event": "trade_opened", "ts_utc": "t1", "ticket": 7, "symbol": "US500", "fill": 100.0, "sl": 90.0,
+             "lots": 1.0, "risk_usd": 10.0},
+            {"event": "trade_closed", "ts_utc": "t2", "ticket": 7, "exit_price": 105.0, "exit_reason": "Exit",
+             "pnl_usd": 5.0, "r_net": 0.5}]
+    [t] = trades("dips", recs)
+    assert t["market"] == "US500" and t["entry"] == 100.0 and t["r"] == 0.5 and t["closed"] == "t2"

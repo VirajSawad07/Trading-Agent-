@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trading Bots</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --border: rgba(11,11,11,0.10); --wash: rgba(11,11,11,0.04);
+  --buy: #2a78d6; --sell: #e34948; --good: #0ca30c; --good-text: #006300; --warning: #fab219;
+  --warn-text: #8a5a00; --critical: #d03b3b; --accent-wash: rgba(42,120,214,0.10); --bad-wash: rgba(208,59,59,0.10);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --border: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.05);
+    --buy: #3987e5; --sell: #e66767; --good-text: #0ca30c; --warn-text: #fab219;
+    --accent-wash: rgba(57,135,229,0.16); --bad-wash: rgba(230,103,103,0.16);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --border: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.05);
+  --buy: #3987e5; --sell: #e66767; --good-text: #0ca30c; --warn-text: #fab219;
+  --accent-wash: rgba(57,135,229,0.16); --bad-wash: rgba(230,103,103,0.16);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 40px; }
+header { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 14px; }
+h1 { font-size: 20px; margin: 0; font-weight: 650; }
+h2 { font-size: 13px; margin: 0 0 10px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+h3 { font-size: 16px; margin: 0; font-weight: 600; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); font-size: 13px; color: var(--ink-2); }
+.spacer { flex: 1; }
+.meta { color: var(--muted); font-size: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.banner { border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; border: 1px solid var(--critical); background: var(--bad-wash); }
+.banner b { color: var(--critical); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.tile { margin: 0; }
+.tile .label { color: var(--ink-2); font-size: 12px; }
+.tile .value { font-size: 24px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tile .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.bots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .bots { grid-template-columns: 1fr; } }
+.bothead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-variant-numeric: tabular-nums; margin-top: 10px; }
+.kv div:nth-child(odd) { color: var(--ink-2); }
+.minis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.mini { background: var(--wash); border-radius: 8px; padding: 8px 10px; }
+.mini .l { font-size: 11px; color: var(--ink-2); } .mini .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: var(--wash); border-radius: 3px; overflow: hidden; margin-top: 3px; }
+.bar > span { display: block; height: 100%; background: var(--good); }
+.lastdec { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--wash); }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.t { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.feed { max-height: 520px; overflow: auto; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border);
+  color: var(--ink-2); white-space: nowrap; }
+.tag.BUY { color: var(--buy); border-color: var(--buy); background: var(--accent-wash); }
+.tag.SELL, .tag.BLOCKED { color: var(--sell); border-color: var(--sell); background: var(--bad-wash); }
+.tag.CLOSE { color: var(--ink); border-color: var(--ink-2); }
+.tag.HOLD { color: var(--good-text); border-color: var(--good); }
+.tag.SKIP { color: var(--warn-text); border-color: var(--warning); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+.chip { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
+.chip:focus-visible { outline: 2px solid var(--buy); outline-offset: 2px; }
+.det { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pos { color: var(--good-text); } .neg { color: var(--critical); }
+.empty { color: var(--muted); padding: 22px 0; text-align: center; }
+.note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Trading bots</h1>
+    <span class="pill" id="acct-pill">MT5: …</span>
+    <span class="pill" id="algo-pill">Algo trading: …</span>
+    <span class="spacer"></span>
+    <a class="meta" href="/gold">Gold price chart →</a>
+    <span class="meta" id="updated"></span>
+  </header>
+
+  <div id="banner"></div>
+
+  <section>
+    <h2>Account (live from MT5)</h2>
+    <div class="tiles" id="account"></div>
+  </section>
+
+  <section>
+    <h2>Bots</h2>
+    <div class="bots" id="bots"></div>
+  </section>
+
+  <section class="card">
+    <h2>Open positions and risk</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Bot</th><th>Market</th><th>Side</th><th class="num">Lots</th><th class="num">Entry</th><th class="num">Now</th>
+        <th class="num">Stop</th><th class="num">Target</th><th class="num">Open P&amp;L</th><th class="num">Loss if stopped</th><th>Opened (UTC)</th></tr></thead>
+      <tbody id="positions"></tbody></table></div>
+  </section>
+
+  <section class="card">
+    <h2>Decisions (newest first)</h2>
+    <div class="chips" id="bot-chips" role="group" aria-label="Filter by bot"></div>
+    <div class="chips" id="act-chips" role="group" aria-label="Filter by decision"></div>
+    <div class="feed tablewrap"><table>
+      <thead><tr><th>Time (UTC)</th><th>Bot</th><th>Market</th><th>Decision</th><th>Why</th><th>Numbers it used</th></tr></thead>
+      <tbody id="decisions"></tbody></table></div>
+  </section>
+
+  <section class="card">
+    <h2>Trades</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Bot</th><th>Market</th><th>Side</th><th>Opened</th><th class="num">Lots</th><th class="num">Entry</th><th class="num">Stop</th>
+        <th class="num">Risk</th><th>Closed</th><th class="num">Exit</th><th>How</th><th class="num">P&amp;L</th><th class="num">R</th></tr></thead>
+      <tbody id="trades"></tbody></table></div>
+  </section>
+
+  <section class="card">
+    <h2>Bot events</h2>
+    <div class="feed tablewrap"><table>
+      <thead><tr><th>Time (UTC)</th><th>Bot</th><th>Event</th><th>What happened</th></tr></thead>
+      <tbody id="events"></tbody></table></div>
+  </section>
+
+  <p class="note">Read-only: this page cannot place, change or close trades. Refreshes every 10 seconds.
+    R = the amount risked on a trade; +1 R means it made what it risked.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (x, d = 2) => x == null || isNaN(x) ? "–" : Number(x).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+const sgn = (x, d = 2) => x == null ? "–" : (x > 0 ? "+" : "") + fmt(x, d);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cls = x => x == null ? "" : x > 0 ? "pos" : x < 0 ? "neg" : "";
+const t16 = s => s ? esc(s.slice(0, 16).replace("T", " ")) : "–";
+function st(kind, text) {
+  const c = { good: "--good", warn: "--warning", bad: "--critical" }[kind], i = { good: "●", warn: "▲", bad: "■" }[kind];
+  return `<span style="color:var(${c})" aria-hidden="true">${i}</span>${esc(text)}`;
+}
+const BOTNAME = { gold: "Gold", dips: "Index dips", "manual / other": "Manual / other" };
+const ACTIONS = ["BUY", "SELL", "CLOSE", "HOLD", "SKIP", "BLOCKED", "NO TRADE"];
+const ACTHELP = { BUY: "opened or wanted to open a buy", SELL: "opened or wanted to open a sell", CLOSE: "exit signal",
+  HOLD: "kept an open trade", SKIP: "setup seen, model said no", BLOCKED: "a risk rule stopped it", "NO TRADE": "no setup" };
+let filt = { bot: "all", act: "all" }, data = null, acct = null;
+
+function chips() {
+  const counts = {}; (data?.decisions || []).forEach(d => { if (filt.bot === "all" || d.bot === filt.bot) counts[d.action] = (counts[d.action] || 0) + 1; });
+  const mk = (group, val, label) => `<button class="chip" data-g="${group}" data-v="${esc(val)}" aria-pressed="${filt[group] === val}">${esc(label)}</button>`;
+  $("bot-chips").innerHTML = '<span class="meta">Bot:</span>' + mk("bot", "all", "All") + mk("bot", "gold", "Gold") + mk("bot", "dips", "Index dips");
+  $("act-chips").innerHTML = '<span class="meta">Decision:</span>' + mk("act", "all", "All")
+    + ACTIONS.map(a => mk("act", a, `${a[0] + a.slice(1).toLowerCase()} (${counts[a] || 0})`)).join("");
+  document.querySelectorAll(".chip").forEach(b => b.onclick = () => { filt[b.dataset.g] = b.dataset.v; renderDecisions(); chips(); });
+}
+
+function details(d) {
+  const x = d.details || {}, out = [];
+  if (d.bot === "gold") {
+    if (x.close != null) out.push(`close ${fmt(x.close)}`);
+    if (x.channel_low != null) out.push(`channel ${fmt(x.channel_low)}–${fmt(x.channel_high)}`);
+    if (x.probability != null) out.push(`model ${Math.round(x.probability * 100)}% (needs ${Math.round((x.threshold || 0.5) * 100)}%)`);
+    if (x.bars_held) out.push(`held ${x.bars_held} h`);
+    if (x.sl_dist != null) out.push(`stop distance ${fmt(x.sl_dist)}`);
+  } else {
+    if (x.close != null) out.push(`close ${fmt(x.close, 1)}`);
+    if (x.sma200 != null) out.push(`200-day avg ${fmt(x.sma200, 1)}`);
+    if (x.rsi2 != null) out.push(`RSI(2) ${fmt(x.rsi2, 1)} (buy < 10)`);
+    if (x.sma5 != null) out.push(`5-day avg ${fmt(x.sma5, 1)}`);
+    if (x.held_bars != null) out.push(`held ${x.held_bars} d`);
+  }
+  return out.join(" · ");
+}
+
+function renderDecisions() {
+  const rows = (data?.decisions || []).filter(d => (filt.bot === "all" || d.bot === filt.bot) && (filt.act === "all" || d.action === filt.act));
+  $("decisions").innerHTML = rows.map(d => `<tr><td class="t">${t16(d.time)}</td><td>${esc(BOTNAME[d.bot])}</td><td>${esc(d.market || "")}</td>
+    <td><span class="tag ${esc(d.action.replace(" ", "_"))}" title="${esc(ACTHELP[d.action] || "")}">${esc(d.action)}</span></td>
+    <td>${esc(d.reason)}</td><td class="det">${esc(details(d))}</td></tr>`).join("")
+    || `<tr><td colspan="6" class="empty">No decisions match this filter.</td></tr>`;
+}
+
+function botCard(b) {
+  const r = b.risk || {}, status = b.halted ? st("bad", "Halted: " + b.halted) : b.running ? st("good", "Running") : st("warn", b.stop_reason || "Not running");
+  const last = (data.decisions || []).find(d => d.bot === b.key);
+  const lim = [];
+  if (b.key === "gold") {
+    const ddUse = r.total_drawdown_limit_pct ? Math.min(100, r.drawdown_pct / r.total_drawdown_limit_pct * 100) : 0;
+    lim.push(`<div>Sized as</div><div>$${fmt(r.sizing_equity, 0)} account · bot equity $${fmt(r.equity)}</div>`,
+      `<div>Risk per trade</div><div>target ${fmt(r.risk_per_trade_pct, 1)}%; the 0.01-lot minimum is used if it risks ≤ ${fmt(r.min_lot_allowed_up_to_pct, 0)}% (gold usually ~3%)</div>`,
+      `<div>Today</div><div>${sgn(r.today_pct)}% · stops for the day at −${fmt(r.daily_loss_limit_pct, 0)}%</div>`,
+      `<div>From peak</div><div>−${fmt(r.drawdown_pct)}% · stops for good at −${fmt(r.total_drawdown_limit_pct, 0)}%
+        <div class="bar" title="share of the drawdown limit used"><span style="width:${ddUse}%;background:var(${ddUse > 66 ? "--critical" : ddUse > 33 ? "--warning" : "--good"})"></span></div></div>`);
+  } else {
+    const used = Math.min(100, Math.max(0, -r.total_r / -r.stop_new_trades_at_total_r * 100));
+    lim.push(`<div>Sized as</div><div>$${fmt(r.sizing_equity, 0)} account</div>`,
+      `<div>Risk per trade</div><div>${fmt(r.risk_per_trade_pct, 1)}% (about $${fmt(r.sizing_equity * r.risk_per_trade_pct / 100, 0)}); less where the minimum lot is smaller</div>`,
+      `<div>Total so far</div><div>${sgn(r.total_r)} R · stops new trades at ${fmt(r.stop_new_trades_at_total_r, 0)} R
+        <div class="bar" title="share of the loss limit used"><span style="width:${used}%;background:var(${used > 66 ? "--critical" : used > 33 ? "--warning" : "--good"})"></span></div></div>`);
+  }
+  return `<div class="card"><div class="bothead"><h3>${esc(b.name)}</h3><span class="pill">${status}</span></div>
+    <div class="meta">${esc(b.markets)} · magic ${b.magic}${b.since ? " · since " + t16(b.since) : ""}</div>
+    <div style="margin-top:6px;color:var(--ink-2)">${esc(b.strategy)}</div>
+    <div class="minis">
+      <div class="mini"><div class="l">Trades closed</div><div class="v">${b.trades_closed}</div></div>
+      <div class="mini"><div class="l">Total R</div><div class="v ${cls(b.total_r)}">${sgn(b.total_r)}</div></div>
+      <div class="mini"><div class="l">Avg R (backtest)</div><div class="v">${b.avg_r == null ? "–" : sgn(b.avg_r, 3)}</div><div class="l">${sgn(b.backtest_avg_r, 3)}</div></div>
+      <div class="mini"><div class="l">Win rate</div><div class="v">${b.win_rate == null ? "–" : Math.round(b.win_rate * 100) + "%"}</div></div>
+    </div>
+    <div class="kv">${lim.join("")}
+      <div>Ledger</div><div>${b.ledger_ok ? st("good", `intact · ${b.ledger_records} records`) : st("bad", "broken: " + b.ledger_msg)}</div>
+      <div>Checks</div><div>${b.decisions} decisions · ${b.errors} errors logged</div></div>
+    <div class="lastdec"><div class="meta">Latest decision ${last ? "· " + t16(last.time) + " UTC" : ""}</div>
+      ${last ? `<span class="tag ${esc(last.action.replace(" ", "_"))}">${esc(last.action)}</span> ${esc(last.reason)}` : "No decision yet."}</div></div>`;
+}
+
+function render() {
+  $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
+  const a = acct || { connected: false };
+  if (a.mode) {
+    $("acct-pill").innerHTML = a.mode === "DEMO" ? st("good", `Demo #${a.login}`) : st("bad", `${a.mode} account #${a.login}`);
+    $("algo-pill").innerHTML = a.algo_trading ? st("good", "Algo trading on") : st("warn", "Algo trading off");
+  } else { $("acct-pill").innerHTML = st("warn", "MT5 not connected"); $("algo-pill").textContent = "Algo trading: –"; }
+  const off = Object.values(data.bots).filter(b => !b.running);
+  $("banner").innerHTML = a.mode && a.mode !== "DEMO"
+    ? `<div class="banner"><b>MT5 is on a ${esc(a.mode)} account</b> (${esc(a.company || "")}, ${esc(a.server || "")}). Both bots only trade demo, so they have stopped.
+       ${off.length ? "Log MT5 back in to the demo account, or run the real account in a separate MT5 install, to resume the demo trials." : ""}</div>` : "";
+  const cur = a.currency || "";
+  $("account").innerHTML = a.mode ? [
+    ["Balance", `${fmt(a.balance)} ${esc(cur)}`, esc(a.server)],
+    ["Equity", `${fmt(a.equity)} ${esc(cur)}`, `${sgn(a.equity - a.balance)} open P&L`],
+    ["Free margin", `${fmt(a.free_margin)}`, a.margin ? `margin used ${fmt(a.margin)} · level ${fmt(a.margin_level, 0)}%` : "no margin used"],
+    ["Leverage", `1:${a.leverage}`, "set by the broker"],
+    ["Open positions", `${a.positions.length}`, `${a.positions.filter(p => p.bot !== "manual / other").length} from the bots`],
+    ["Loss if every stop hits", `${fmt(a.open_risk)} ${esc(cur)}`, a.open_risk_pct == null ? "" : `${fmt(a.open_risk_pct)}% of equity`],
+  ].map(([l, v, s]) => `<div class="card tile"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></div>`).join("")
+    : `<div class="card empty">MT5 is not connected, so account details are unavailable.</div>`;
+  $("bots").innerHTML = Object.values(data.bots).map(botCard).join("");
+  const ps = a.positions || [];
+  $("positions").innerHTML = ps.map(p => `<tr><td>${esc(BOTNAME[p.bot] || p.bot)}</td><td>${esc(p.market)}</td>
+    <td><span class="tag ${p.side}">${p.side}</span></td><td class="num">${p.lots}</td><td class="num">${fmt(p.entry)}</td><td class="num">${fmt(p.price)}</td>
+    <td class="num">${fmt(p.stop)}</td><td class="num">${fmt(p.target)}</td><td class="num ${cls(p.pnl)}">${sgn(p.pnl)}</td>
+    <td class="num">${p.risk_to_stop == null ? '<span class="neg">no stop</span>' : `${fmt(p.risk_to_stop)} (${fmt(p.risk_pct)}%)`}</td>
+    <td class="t">${esc(p.opened)}</td></tr>`).join("") || `<tr><td colspan="11" class="empty">No open positions.</td></tr>`;
+  $("trades").innerHTML = data.trades.map(t => `<tr><td>${esc(BOTNAME[t.bot])}</td><td>${esc(t.market)}</td><td>${t.side ? `<span class="tag ${esc(t.side)}">${esc(t.side)}</span>` : "–"}</td>
+    <td class="t">${t16(t.opened)}</td><td class="num">${t.lots ?? "–"}</td><td class="num">${fmt(t.entry)}</td><td class="num">${fmt(t.stop)}</td>
+    <td class="num">${t.risk_usd == null ? "–" : "$" + fmt(t.risk_usd)}</td><td class="t">${t.closed ? t16(t.closed) : "open"}</td>
+    <td class="num">${fmt(t.exit)}</td><td>${esc(t.exit_reason || "")}</td><td class="num ${cls(t.pnl_usd)}">${t.pnl_usd == null ? "–" : sgn(t.pnl_usd)}</td>
+    <td class="num ${cls(t.r)}">${t.r == null ? "–" : sgn(t.r)}</td></tr>`).join("")
+    || `<tr><td colspan="13" class="empty">No trades yet. Gold expects about 1–2 a month, index dips about 3 a month.</td></tr>`;
+  $("events").innerHTML = data.events.map(e => `<tr><td class="t">${t16(e.time)}</td><td>${esc(BOTNAME[e.bot])}</td>
+    <td><span class="tag">${esc(e.event.replace("_", " "))}</span></td><td>${esc(e.reason)}</td></tr>`).join("")
+    || `<tr><td colspan="4" class="empty">No events.</td></tr>`;
+  chips(); renderDecisions();
+}
+
+async function tick() {
+  try {
+    const [o, a] = await Promise.all([fetch("/api/overview").then(r => r.json()),
+      fetch("/api/account").then(r => r.json()).catch(() => ({ connected: false }))]);
+    data = o; acct = a; render();
+  } catch (e) { $("banner").innerHTML = `<div class="banner"><b>Dashboard server not reachable.</b> Start it with python -m src.live.dashboard.</div>`; }
+}
+tick(); setInterval(tick, 10000);
+</script>
+</body>
+</html>

@@ -1,6 +1,9 @@
-"""Read-only live dashboard for the paper trader.
+"""Read-only live dashboard for the bots.
 
     python -m src.live.dashboard            # then open http://127.0.0.1:8050
+
+/      overview of every bot: account, decisions (buy, sell, hold, skip), trades and risk
+/gold  the gold bot's own page, with its price chart
 
 Shows what the paper trader is doing: running or not, its equity, the open position,
 the price with the breakout channel, cumulative R against the backtest, and every
@@ -18,6 +21,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from src.live.ledger import read, summary, verify
+from src.live.overview import account_snapshot, overview
 
 try:
     import MetaTrader5 as mt5
@@ -87,7 +91,22 @@ def _mt5_ready() -> bool:
 
 @app.get("/")
 def index():
+    return FileResponse(Path(__file__).with_name("overview.html"))
+
+
+@app.get("/gold")
+def gold_page():
     return FileResponse(Path(__file__).with_name("dashboard.html"))
+
+
+@app.get("/api/overview")
+def api_overview():
+    return overview()
+
+
+@app.get("/api/account")
+def api_account():
+    return account_snapshot(mt5) if _mt5_ready() else {"connected": False}
 
 
 @app.get("/api/ledger")
