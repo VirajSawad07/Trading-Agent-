@@ -140,3 +140,34 @@ applied to all history. Code: `src/research/trend_following.py`. The hold-out wa
 - **Deflated Sharpe** is 0.00 for both, counted against the plan's 5 trials.
 
 Trials used so far in this plan: 4 of 5.
+
+### Track 3, buying dips in rising indexes: FAIL by the plan's rules, but the strongest result (2026-11-15)
+
+Development period 2013-05 to 2025-04, daily bars, 8 indexes (US500, US30, USTEC, DE40,
+JPN225, AUS200, FRA40, EUSTX50). Code: `src/research/index_dips.py`. The hold-out was
+**not** run, because two checks failed.
+
+| Trades (per yr) | Win rate | Avg R | t | Daily Sharpe (yr) | 2x costs | Max drawdown | Shuffled data |
+|---|---|---|---|---|---|---|---|
+| 493 (41) | 73% | +0.062 | 2.96 | 0.60 | +17.5 R (+0.035 R) | 10.8 R | real +30.7 R vs shuffled mean +5.0 R, p95 +15.5 R |
+
+**Checks:** passed enough trades, profit after costs with t > 2, 2x costs, and beating 95% of
+shuffled runs. **Failed:**
+- **Shuffled data made money on average (+5.0 R, 15 of 20 runs).** The strategy only buys,
+  and stock indexes rise over time; shuffling the order of days keeps that rise, so a
+  long-only rule profits on shuffled data too. The check was meant to catch harness bugs.
+  Here it shows that part of the result is just the indexes going up. The real result
+  beats the shuffled average by about 26 R, or about +0.05 R per trade.
+- **Deflated Sharpe 0.002 over 5 trials.** The threshold comes from how spread out the five
+  trials' Sharpes are, and Track 1's Gao trial (Sharpe -2.39, driven by costs) spreads them
+  a lot. Without that, it would still need a Sharpe well above 0.6 to pass.
+
+**Detail:**
+- **By index:** US500 +0.116 R (t 2.5, 106 trades), US30 +0.088 R, USTEC +0.144 R, DE40
+  +0.041 R; FRA40 and JPN225 slightly negative.
+- **Exits:** 433 at the 5-day average, 60 at the stop (about -1.03 R each). Average hold 3 days.
+- **By year:** losing years 2018, 2020, 2022 and early 2025; best 2024 (+14.6 R).
+- **Costs** are small here (0.027 R per trade), because trades are short and stops wide.
+
+Trials used: 5 of 5. **All three tracks failed the plan's rules.** Per the plan, the next
+step is a written revision of the plan before any more testing.

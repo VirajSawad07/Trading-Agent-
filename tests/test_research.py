@@ -90,3 +90,41 @@ def test_trend_position_earns_from_the_next_day_and_pays_costs():
     assert (sim["trade_cost"] >= 0).all() and sim["trade_cost"].sum() > 0
     assert sim["financing"].sum() < 0
     assert w.abs().max().max() <= 2.0
+
+
+# ---------------------------------------------------------------- Track 3
+
+def _daily_bars(n=700, seed=3):
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2016-01-01", periods=n)
+    c = 1000 * np.cumprod(1 + rng.normal(0.0006, 0.012, n))
+    o = c * (1 + rng.normal(0, 0.002, n))
+    return pd.DataFrame({"open": o, "high": np.maximum(o, c) * 1.004, "low": np.minimum(o, c) * 0.996, "close": c},
+                        index=idx)
+
+
+_IDX_COST = {"point": 0.01, "spread_points": 60.0, "slippage_points": 15.0,
+             "financing": {"type": "annual_pct", "long": -2.0, "short": -2.0}}
+
+
+def test_dip_trades_have_no_lookahead():
+    from src.research.index_dips import trades_for
+    b = _daily_bars()
+    full = pd.DataFrame(trades_for("X", b, _IDX_COST))
+    part = pd.DataFrame(trades_for("X", b.iloc[:500], _IDX_COST))
+    assert len(part) > 3
+    done = full[full["exit_time"] < b.index[499]].reset_index(drop=True)
+    pd.testing.assert_frame_equal(done, part[part["exit_time"] < b.index[499]].reset_index(drop=True))
+
+
+def test_dip_trades_follow_the_rules():
+    from src.research.index_dips import indicators, trades_for
+    b = _daily_bars()
+    t = pd.DataFrame(trades_for("X", b, _IDX_COST))
+    x = indicators(b)
+    at_entry = x.loc[t["entry_time"]]
+    assert (at_entry["close"] > at_entry["sma_trend"]).all() and (at_entry["rsi"] < 10).all()
+    assert t["bars_held"].between(1, 10).all()
+    assert (t["r_net"] < t["r_gross"]).all()
+    stops = t[t["exit_reason"] == "STOP"]
+    assert (stops["r_gross"] <= -1 + 1e-9).all()  # a stop loses at least 1 R before costs
